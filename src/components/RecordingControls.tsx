@@ -187,7 +187,7 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
             {!isRecording ? (
               <button
                 onClick={handleStartRecording}
-                className="px-3 py-1.5 bg-red-600/80 text-white text-xs rounded-lg border border-red-500/50 hover:bg-red-600 transition-all duration-200 hover:scale-105"
+                className="px-3 py-1.5 bg-background text-foreground text-xs rounded-lg border border-black/10 dark:border-white/10 hover:bg-foreground/10 transition-all duration-20 hover:scale-105"
                 title="Start Recording"
               >
                 ●
@@ -197,7 +197,7 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
                 {!isPaused ? (
                   <button
                     onClick={handlePauseRecording}
-                    className="px-3 py-1.5 bg-yellow-600/80 text-white text-xs rounded-lg border border-yellow-500/50 hover:bg-yellow-600 transition-all duration-200 hover:scale-105"
+                    className="px-3 py-1.5 bg-background text-foreground text-xs rounded-lg border border-black/10 dark:border-white/10 hover:bg-foreground/10 transition-all duration-20 hover:scale-105"
                     title="Pause Recording"
                   >
                     ⏸
@@ -205,7 +205,7 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
                 ) : (
                   <button
                     onClick={handleResumeRecording}
-                    className="px-3 py-1.5 bg-green-600/80 text-white text-xs rounded-lg border border-green-500/50 hover:bg-green-600 transition-all duration-200 hover:scale-105"
+                    className="px-3 py-1.5 bg-background text-foreground text-xs rounded-lg border border-black/10 dark:border-white/10 hover:bg-foreground/10 transition-all duration-20 hover:scale-105"
                     title="Resume Recording"
                   >
                     ▶
@@ -213,7 +213,7 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
                 )}
                 <button
                   onClick={handleStopRecording}
-                  className="px-3 py-1.5 bg-gray-600/80 text-white text-xs rounded-lg border border-gray-500/50 hover:bg-gray-600 transition-all duration-200 hover:scale-105"
+                  className="px-3 py-1.5 bg-background text-foreground text-xs rounded-lg border border-black/10 dark:border-white/10 hover:bg-foreground/10 transition-all duration-20 hover:scale-105"
                   title="Stop Recording"
                 >
                   ■
@@ -237,7 +237,7 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
           <div className="flex items-center gap-1">
             <button
               onClick={handleExportData}
-              className="px-2 py-1.5 bg-blue-600/80 text-white text-xs rounded-lg border border-blue-500/50 hover:bg-blue-600 transition-all duration-200 hover:scale-105"
+              className="px-2 py-1.5 bg-background text-foreground text-xs rounded-lg border border-black/10 dark:border-white/10 hover:bg-foreground/10 transition-all duration-20 hover:scale-105"
               title="Download Session Data"
             >
               💾
@@ -252,7 +252,7 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
                   console.log('No session data available');
                 }
               }}
-              className="px-2 py-1.5 bg-green-600/80 text-white text-xs rounded-lg border border-green-500/50 hover:bg-green-600 transition-all duration-200 hover:scale-105"
+              className="px-2 py-1.5 bg-background text-foreground text-xs rounded-lg border border-black/10 dark:border-white/10 hover:bg-foreground/10 transition-all duration-20 hover:scale-105"
               title="View Session Recording"
               disabled={!currentSessionData}
             >
@@ -260,7 +260,7 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
             </button>
             <button
               onClick={() => setShowRecordingHistory(true)}
-              className="px-2 py-1.5 bg-purple-600/80 text-white text-xs rounded-lg border border-purple-500/50 hover:bg-purple-600 transition-all duration-200 hover:scale-105"
+              className="px-2 py-1.5 bg-background text-foreground text-xs rounded-lg border border-black/10 dark:border-white/10 hover:bg-foreground/10 transition-all duration-20 hover:scale-105"
               title="View Recording History"
             >
               📚

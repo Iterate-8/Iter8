@@ -60,7 +60,7 @@ const SessionDataViewer: React.FC<SessionDataViewerProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-gray-900 border border-gray-700 rounded-lg w-full max-w-4xl h-[80vh] flex flex-col">
+      <div className="bg-background border border-black/10 dark:border-white/10 rounded-lg w-full max-w-4xl h-[80vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-700">
           <h2 className="text-gray-200 font-mono text-lg">Session Data Viewer</h2>

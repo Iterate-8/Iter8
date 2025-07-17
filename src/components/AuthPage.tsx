@@ -48,7 +48,7 @@ const AuthPage: React.FC = () => {
         </div>
 
         {/* Auth Form */}
-        <div className="bg-gray-900 p-8 rounded-lg border border-gray-700">
+        <div className="bg-background p-8 rounded-lg border border-black/10 dark:border-white/10">
           <h2 className="text-gray-300 font-mono text-xl mb-6 text-center">
             {isSignUp ? "Create Account" : "Sign In"}
           </h2>

@@ -110,11 +110,11 @@ const FeedbackBox: React.FC<FeedbackBoxProps> = ({
             onClick={() => setFeedbackType(type)}
             className={`px-3 py-1 rounded border font-mono transition-colors ${
               feedbackType === type
-                ? 'bg-gray-800 border-gray-600 text-white'
-                : 'border-gray-600 text-gray-400 hover:text-white'
+                ? 'bg-foreground/10 border-black/10 dark:border-white/10 text-foreground'
+                : 'bg-background border-black/10 dark:border-white/10 text-foreground hover:bg-foreground/5'
             }`}
           >
-            {type.charAt(0).toUpperCase() + type.slice(1)}
+            {type === 'ux' ? 'UX' : type.charAt(0).toUpperCase() + type.slice(1)}
           </button>
         ))}
       </div>
@@ -135,10 +135,10 @@ const FeedbackBox: React.FC<FeedbackBoxProps> = ({
           <button
             type="submit"
             disabled={loading || !feedback.trim()}
-            className="absolute bottom-3 right-3 p-1.5 rounded-md bg-black text-white dark:bg-white dark:text-black font-mono transition-opacity disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-80 flex items-center justify-center"
+            className="absolute bottom-3 right-3 p-1.5 rounded-md bg-background text-foreground border border-black/10 dark:border-white/10 font-mono transition-all disabled:opacity-50 isabled:cursor-not-allowed hover:bg-foreground/10 flex items-center justify-center"
           >
             {loading ? (
-              <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <div className="w-3 h-3 border-2 border-foreground border-t-transparent rounded-full animate-spin" />
             ) : (
               <svg 
                 className="w-3 h-3" 

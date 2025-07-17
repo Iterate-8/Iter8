@@ -1,11 +1,9 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
-import { AnalyticsData } from "../types/analytics";
+import React, { useState, useEffect, useRef } from "react";
+import { AnalyticsData, SessionData } from "../types/analytics";
 import { AnalyticsService } from "../lib/analyticsService";
 import RecordingControls from "./RecordingControls";
-
-import { SessionData } from "../types/analytics";
 
 interface EmbedCanvasProps {
   onUrlChange?: (url: string) => void;
@@ -25,27 +23,29 @@ const EmbedCanvas: React.FC<EmbedCanvasProps> = ({
   const [currentUrl, setCurrentUrl] = useState<string>("");
 
   const [showRecordingViewer, setShowRecordingViewer] = useState(false);
+  const [isEditingUrl, setIsEditingUrl] = useState(false);
+  const [editingUrl, setEditingUrl] = useState<string>("");
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   
   // Analytics service instance
-  const [analyticsService] = useState(() => new AnalyticsService(`session_${Date.now()}`));
+  const analyticsService = useRef(new AnalyticsService(`session_${Date.now()}`));
 
   // Set iframe as recording target when it's available
   useEffect(() => {
     if (iframeRef.current) {
-      analyticsService.setRecordingTarget(iframeRef.current);
+      analyticsService.current.setRecordingTarget(iframeRef.current);
     }
   }, [submittedUrl, analyticsService]);
 
   // Track user interactions with enhanced logging
   const trackInteraction = React.useCallback((type: string, data?: Record<string, unknown>, coordinates?: { x: number; y: number }) => {
     // Log to analytics service
-    analyticsService.logCustomAction(type, data, coordinates);
+    analyticsService.current.logCustomAction(type, data, coordinates);
 
     // Update analytics silently
     if (onAnalyticsUpdate) {
-      const currentAnalytics = analyticsService.getCurrentAnalytics();
+      const currentAnalytics = analyticsService.current.getCurrentAnalytics();
       onAnalyticsUpdate(currentAnalytics);
     }
   }, [analyticsService, onAnalyticsUpdate]);
@@ -76,7 +76,7 @@ const EmbedCanvas: React.FC<EmbedCanvasProps> = ({
       onUrlChange?.(processedUrl);
       
       // Update analytics service with new URL
-      analyticsService.updateCurrentUrl(processedUrl);
+      analyticsService.current.updateCurrentUrl(processedUrl);
       
       // Track URL submission with enhanced logging
       trackInteraction('url_submit', { url: processedUrl });
@@ -116,7 +116,7 @@ const EmbedCanvas: React.FC<EmbedCanvasProps> = ({
             const newUrl = iframe.contentWindow.location.href;
             setCurrentUrl(newUrl);
             onUrlChange?.(newUrl);
-            analyticsService.updateCurrentUrl(newUrl);
+            analyticsService.current.updateCurrentUrl(newUrl);
             trackInteraction('page_load', { url: newUrl });
           }
         } catch {
@@ -147,6 +147,30 @@ const EmbedCanvas: React.FC<EmbedCanvasProps> = ({
     setShowRecordingViewer(false);
   };
 
+  // Handle URL editing
+  const handleUrlEdit = () => {
+    setIsEditingUrl(true);
+    setEditingUrl(currentUrl);
+  };
+
+  const handleUrlSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingUrl.trim()) {
+      const processedUrl = editingUrl.startsWith('http') ? editingUrl : `https://${editingUrl}`;
+      setSubmittedUrl(processedUrl);
+      setCurrentUrl(processedUrl);
+      onUrlChange?.(processedUrl);
+      analyticsService.current.updateCurrentUrl(processedUrl);
+      trackInteraction('url_change', { url: processedUrl });
+    }
+    setIsEditingUrl(false);
+  };
+
+  const handleUrlCancel = () => {
+    setIsEditingUrl(false);
+    setEditingUrl(currentUrl);
+  };
+
   return (
     <div 
       ref={canvasRef}
@@ -162,25 +186,75 @@ const EmbedCanvas: React.FC<EmbedCanvasProps> = ({
         }}
       >
         {!submittedUrl ? (
-          // URL Input Form
-          <div className="absolute inset-0 flex items-center justify-center p-8">
-            <div className="bg-background p-8 rounded-lg border border-gray-700 w-full max-w-md">
-              <h2 className="text-gray-300 font-mono text-xl mb-4 text-center">Enter Website URL</h2>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <input
-                  type="text"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  placeholder="https://example.com"
-                  className="w-full p-3 bg-background border border-gray-600 rounded font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500"
-                />
+          // Browser-like Interface
+          <div className="w-full h-full flex flex-col">
+            {/* Browser Navbar */}
+            <div className="bg-background border-b border-black/10 dark:border-white/10 flex items-center px-4 gap-2">
+              {/* Navigation Controls */}
+              <div className="flex items-center gap-1">
                 <button
-                  type="submit"
-                  className="w-full p-3 bg-gray-600 text-gray-200 font-mono rounded hover:bg-gray-500 transition-colors"
+                  className="p-2 bg-background text-foreground font-mono text-sm rounded-lg border border-black/10 dark:border-white/10 hover:bg-foreground/10 transition-all duration-200 hover:scale-105 disabled:opacity-50"
+                  title="Go Back"
+                  disabled
                 >
-                  Load Website
+                  ←
                 </button>
-              </form>
+                <button
+                  className="p-2 bg-background text-foreground font-mono text-sm rounded-lg border border-black/10 dark:border-white/10 hover:bg-foreground/10 transition-all duration-200 hover:scale-105 disabled:opacity-50"
+                  title="Go Forward"
+                  disabled
+                >
+                  →
+                </button>
+                <button
+                  className="p-2 bg-background text-foreground font-mono text-sm rounded-lg border border-black/10 dark:border-white/10 hover:bg-foreground/10 transition-all duration-200 hover:scale-105 disabled:opacity-50"
+                  title="Refresh"
+                  disabled
+                >
+                  ↻
+                </button>
+              </div>
+              
+              {/* URL Bar */}
+              <div className="flex-1 mx-4">
+                <form onSubmit={handleSubmit} className="w-full relative">
+                  <input
+                    type="text"
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    placeholder="Enter website URL (e.g., https://example.com)"
+                    className="w-full bg-background text-foreground font-mono text-sm px-3 rounded-lg border border-black/10 dark:border-white/10 focus:outline-none focus:ring-2us:ring-foreground/20 placeholder-gray-500"
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    disabled={!url.trim()}
+                    className="absolute right-2 top-1/2 transform -translate-y-1 px-3 py-1foreground/10xt-foreground font-mono text-xs rounded border border-black/10 dark:border-white/10 hover:bg-foreground/20 transition-all duration-200 disabled:opacity-50isabled:cursor-not-allowed"
+                  >
+                    Go
+                  </button>
+                </form>
+              </div>
+              
+            </div>
+            
+            {/* Browser Content Area */}
+            <div className="flex-1 flex items-center justify-center p-8">
+              <div className="text-center">
+                <div className="font-mono font-light text-foreground animate-pulse" style={{
+                  fontSize: '8rem',
+                  lineHeight: '1',
+                  textShadow: '0 0 20px rgba(192, 192, 192, 0.8), 0 0 40px rgba(192, 192, 192, 0.4), 0 0 60px rgba(192, 192, 192, 0.2)',
+                  filter: 'drop-shadow(0 0 10px rgba(192, 192, 192, 0.6))'
+                }}>∞</div>
+                <h2 className="text-foreground font-mono text-xl mb-2">Welcome to Iter8</h2>
+                <p className="text-gray-400 font-mono text-sm mb-6">Enter a URL above to start browsing and recording</p>
+                <div className="text-xs text-gray-50 font-mono space-y-1">
+                  <div>Click the navigation buttons to browse</div>
+                  <div>Use the URL bar to navigate to any website</div>
+                  <div>Your session will be automatically recorded</div>
+                </div>
+              </div>
             </div>
           </div>
         ) : showRecordingViewer ? (
@@ -191,7 +265,7 @@ const EmbedCanvas: React.FC<EmbedCanvasProps> = ({
               <p className="text-gray-400 font-mono mb-6">The recording viewer is now open in a separate modal.</p>
               <button
                 onClick={handleReturnToWebsite}
-                className="px-4 py-2 bg-gray-600 text-gray-200 font-mono rounded hover:bg-gray-500 transition-colors"
+                className="px-4 py-2 bg-foreground/10 text-foreground font-mono rounded border border-black/10 dark:border-white/10 hover:bg-foreground/20 transition-colors"
               >
                 Return to Website
               </button>
@@ -201,27 +275,27 @@ const EmbedCanvas: React.FC<EmbedCanvasProps> = ({
           // Embedded Website with Navigation
           <div className="w-full h-full relative">
             {/* Top Navigation Bar */}
-            <div className="absolute top-0 left-0 right-0 z-20 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700/50 h-12">
+            <div className="absolute top-0 left-0 right-0 z-20 bg-background border-b border-black/10 dark:border-white/10 h-12">
               <div className="flex items-center justify-between px-4 py-2 h-full">
                 {/* Left: Navigation Controls */}
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleBack}
-                    className="p-2 bg-gray-800/80 text-gray-300 font-mono text-sm rounded-lg border border-gray-600/50 hover:bg-gray-700/80 transition-all duration-200 hover:scale-105"
+                    className="p-2 bg-background text-foreground font-mono text-sm rounded-lg border border-black/10 dark:border-white/10 hover:bg-foreground/10 transition-all duration-200 hover:scale-105"
                     title="Go Back"
                   >
                     ←
                   </button>
                   <button
                     onClick={handleForward}
-                    className="p-2 bg-gray-800/80 text-gray-300 font-mono text-sm rounded-lg border border-gray-600/50 hover:bg-gray-700/80 transition-all duration-200 hover:scale-105"
+                    className="p-2 bg-background text-foreground font-mono text-sm rounded-lg border border-black/10 dark:border-white/10 hover:bg-foreground/10 transition-all duration-200 hover:scale-105"
                     title="Go Forward"
                   >
                     →
                   </button>
                   <button
                     onClick={handleRefresh}
-                    className="p-2 bg-gray-800/80 text-gray-300 font-mono text-sm rounded-lg border border-gray-600/50 hover:bg-gray-700/80 transition-all duration-200 hover:scale-105"
+                    className="p-2 bg-background text-foreground font-mono text-sm rounded-lg border border-black/10 dark:border-white/10 hover:bg-foreground/10 transition-all duration-200 hover:scale-105"
                     title="Refresh"
                   >
                     ↻
@@ -230,29 +304,37 @@ const EmbedCanvas: React.FC<EmbedCanvasProps> = ({
                 
                 {/* Center: URL Display */}
                 <div className="flex-1 mx-4">
-                  <div className="bg-gray-800/80 text-gray-300 font-mono text-xs px-3 py-2 rounded-lg border border-gray-600/50 truncate max-w-md mx-auto">
-                    {currentUrl}
-                  </div>
+                  {isEditingUrl ? (
+                    <form onSubmit={handleUrlSubmit} className="max-w-md mx-auto">
+                      <input
+                        type="text"
+                        value={editingUrl}
+                        onChange={(e) => setEditingUrl(e.target.value)}
+                        onBlur={handleUrlCancel}
+                        className="w-full bg-background text-foreground font-mono text-xs px-3 rounded-lg border border-black/10 dark:border-white/10 focus:outline-none focus:ring-2us:ring-foreground/20"
+                        autoFocus
+                      />
+                    </form>
+                  ) : (
+                    <div 
+                      className="bg-background text-foreground font-mono text-xs px-3 rounded-lg border border-black/10 dark:border-white/10 truncate max-w-md mx-auto cursor-pointer hover:bg-foreground/5 transition-colors"
+                      onClick={handleUrlEdit}
+                      title="Click to edit URL"
+                    >
+                      {currentUrl}
+                    </div>
+                  )}
                 </div>
                 
                 {/* Right: Recording Controls */}
                 <div className="flex items-center gap-2">
                   <RecordingControls
-                    analyticsService={analyticsService}
+                    analyticsService={analyticsService.current}
                     onSessionData={onSessionData}
                     onAnalyticsUpdate={onAnalyticsUpdate}
                     isNavbar={true}
                     onShowRecording={handleShowRecording}
                   />
-                  <button
-                    onClick={() => {
-                      setSubmittedUrl("");
-                      trackInteraction('url_change');
-                    }}
-                    className="px-3 py-2 bg-gray-800/80 text-gray-300 font-mono text-sm rounded-lg border border-gray-600/50 hover:bg-gray-700/80 transition-all duration-200 hover:scale-105"
-                  >
-                    Change URL
-                  </button>
                 </div>
               </div>
             </div>
