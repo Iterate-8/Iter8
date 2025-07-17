@@ -91,8 +91,6 @@ export default function Home() {
         <div className="flex-1 flex flex-col justify-end">
           <FeedbackBox 
             currentUrl={currentUrl} 
-            analyticsData={analyticsData}
-            onAnalyticsUpdate={handleAnalyticsUpdate}
           />
         </div>
       </aside>

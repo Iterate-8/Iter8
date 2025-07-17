@@ -1,53 +1,23 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "./AuthProvider";
-import { AnalyticsData } from "../types/analytics";
 
 interface FeedbackBoxProps {
   currentUrl?: string;
-  analyticsData?: AnalyticsData;
-  onAnalyticsUpdate?: (data: AnalyticsData) => void;
 }
 
 const FeedbackBox: React.FC<FeedbackBoxProps> = ({ 
-  currentUrl = "", 
-  analyticsData,
-  onAnalyticsUpdate 
+  currentUrl = "" 
 }) => {
   const [feedback, setFeedback] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
-  const [sentiment, setSentiment] = useState(0);
   const [feedbackType, setFeedbackType] = useState<string>("general");
   const { user } = useAuth();
 
-  // Simple sentiment analysis
-  const analyzeSentiment = (text: string): number => {
-    const positiveWords = ['good', 'great', 'excellent', 'love', 'amazing', 'perfect', 'awesome', 'fantastic', 'wonderful', 'best'];
-    const negativeWords = ['bad', 'terrible', 'awful', 'hate', 'worst', 'horrible', 'frustrating', 'confusing', 'broken', 'useless'];
-    
-    const words = text.toLowerCase().split(/\s+/);
-    let score = 0;
-    
-    words.forEach(word => {
-      if (positiveWords.includes(word)) score += 1;
-      if (negativeWords.includes(word)) score -= 1;
-    });
-    
-    return Math.max(-5, Math.min(5, score));
-  };
 
-  // Track feedback interactions
-  useEffect(() => {
-    if (onAnalyticsUpdate && analyticsData) {
-      onAnalyticsUpdate({
-        ...analyticsData,
-        interactions: analyticsData.interactions + 1
-      });
-    }
-  }, [feedback]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,31 +26,11 @@ const FeedbackBox: React.FC<FeedbackBoxProps> = ({
     setLoading(true);
     setMessage("");
 
-    // Analyze sentiment
-    const sentimentScore = analyzeSentiment(feedback);
-    setSentiment(sentimentScore);
-
-    // Generate a session ID if not provided
-    const sessionId = analyticsData?.sessionId || `session_${Date.now()}`;
-
     try {
       console.log('Submitting feedback with data:', {
         user_id: user.id,
-        session_id: sessionId,
-        url: currentUrl,
-        feedback: feedback.trim(),
-        sentiment_score: sentimentScore,
         feedback_type: feedbackType,
-        session_duration: analyticsData?.sessionDuration || 0,
-        interaction_count: analyticsData?.interactions || 0,
-        user_journey: analyticsData?.userJourney || [],
-        created_at: new Date().toISOString(),
-      });
-
-      // Check if Supabase client is properly configured
-      console.log('Supabase client config:', {
-        hasUser: !!user?.id,
-        user: user?.id
+        feedback: feedback.trim()
       });
 
       const { data, error } = await supabase
@@ -88,15 +38,8 @@ const FeedbackBox: React.FC<FeedbackBoxProps> = ({
         .insert([
           {
             user_id: user.id,
-            session_id: sessionId,
-            url: currentUrl,
-            feedback: feedback.trim(),
-            sentiment_score: sentimentScore,
             feedback_type: feedbackType,
-            session_duration: analyticsData?.sessionDuration || 0,
-            interaction_count: analyticsData?.interactions || 0,
-            user_journey: analyticsData?.userJourney || [],
-            created_at: new Date().toISOString(),
+            feedback: feedback.trim()
           }
         ])
         .select();
@@ -112,20 +55,10 @@ const FeedbackBox: React.FC<FeedbackBoxProps> = ({
       setFeedback("");
       setMessage("Feedback submitted successfully!");
       
-      // Update analytics with sentiment
-      if (onAnalyticsUpdate && analyticsData) {
-        onAnalyticsUpdate({
-          ...analyticsData,
-          sentiment: sentimentScore
-        });
-      }
-      
       // Clear message after 3 seconds
       setTimeout(() => setMessage(""), 3000);
     } catch (error: unknown) {
-      console.error('Full error object:', error);
-      console.error('Error type:', typeof error);
-      console.error('Error constructor:', error?.constructor?.name);
+      console.error('Error submitting feedback:', error);
       
       let errorMessage = 'An unknown error occurred';
       
@@ -137,7 +70,6 @@ const FeedbackBox: React.FC<FeedbackBoxProps> = ({
         errorMessage = error;
       }
       
-      console.error('Error message:', errorMessage);
       setMessage(`Error: ${errorMessage}`);
     } finally {
       setLoading(false);
@@ -201,25 +133,7 @@ const FeedbackBox: React.FC<FeedbackBoxProps> = ({
           </button>
         </div>
         
-        {/* Sentiment Indicator */}
-        {feedback && (
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-gray-400">Sentiment:</span>
-            <div className="flex gap-1">
-              {[-2, -1, 0, 1, 2].map((level) => (
-                <div
-                  key={level}
-                  className={`w-2 h-2 rounded-full ${
-                    sentiment >= level ? 'bg-green-500' : 'bg-gray-600'
-                  }`}
-                />
-              ))}
-            </div>
-            <span className="text-gray-400 font-mono">
-              {sentiment > 0 ? '+' : ''}{sentiment}
-            </span>
-          </div>
-        )}
+
         
         {message && (
           <div className="text-sm font-mono text-center p-2 rounded bg-gray-800 border border-gray-600">

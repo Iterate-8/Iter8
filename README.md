@@ -24,24 +24,43 @@ npm install
 2. Create the following table in your Supabase database:
 
 ```sql
+-- Create simplified feedback table with only essential fields
+-- Drop existing table if it exists (use with caution in production)
+DROP TABLE IF EXISTS feedback CASCADE;
+
+-- Create new simplified feedback table
 CREATE TABLE feedback (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  url TEXT NOT NULL,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  feedback_type VARCHAR(20) NOT NULL CHECK (feedback_type IN ('general', 'bug', 'feature', 'ux')),
   feedback TEXT NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
--- Enable RLS (Row Level Security)
+-- Create indexes for better performance
+CREATE INDEX idx_feedback_user_id ON feedback(user_id);
+CREATE INDEX idx_feedback_type ON feedback(feedback_type);
+CREATE INDEX idx_feedback_created_at ON feedback(created_at);
+
+-- Add RLS (Row Level Security) policies
 ALTER TABLE feedback ENABLE ROW LEVEL SECURITY;
 
--- Create policy to allow users to insert their own feedback
-CREATE POLICY "Users can insert their own feedback" ON feedback
+-- Policy: Users can only see their own feedback
+CREATE POLICY "Users can view own feedback" ON feedback
+  FOR SELECT USING (auth.uid() = user_id);
+
+-- Policy: Users can insert their own feedback
+CREATE POLICY "Users can insert own feedback" ON feedback
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
--- Create policy to allow users to view their own feedback
-CREATE POLICY "Users can view their own feedback" ON feedback
-  FOR SELECT USING (auth.uid() = user_id);
+-- Policy: Users can update their own feedback
+CREATE POLICY "Users can update own feedback" ON feedback
+  FOR UPDATE USING (auth.uid() = user_id);
+
+-- Policy: Users can delete their own feedback
+CREATE POLICY "Users can delete own feedback" ON feedback
+  FOR DELETE USING (auth.uid() = user_id);
 ```
 
 3. Get your Supabase URL and anon key from the project settings
@@ -81,9 +100,10 @@ Open [http://localhost:3000](http://localhost:3000) to view the application.
 ### feedback table
 - `id`: Unique identifier (UUID)
 - `user_id`: Reference to authenticated user
-- `url`: The website URL being tested
+- `feedback_type`: Type of feedback ('general', 'bug', 'feature', 'ux')
 - `feedback`: User's feedback text
 - `created_at`: Timestamp of submission
+- `updated_at`: Timestamp of last update
 
 ## Contributing
 
