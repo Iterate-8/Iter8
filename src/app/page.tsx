@@ -98,11 +98,7 @@ export default function Home() {
       </aside>
       
       {/* Right: Embedded Canvas */}
-      <main className="flex-1 flex flex-col relative">
-        {/* Profile Dropdown - Top Right - KEEPING EXISTING POSITION */}
-        <div className="absolute top-4 right-4 z-50">
-          <ProfileDropdown />
-        </div>
+      <main className="flex-1 flex flex-col relative bg-gray-900 text-white">
         
         <div className="flex-1 w-full h-full">
           <EmbedCanvas 

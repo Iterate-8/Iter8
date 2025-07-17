@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { AnalyticsData, SessionData } from "../types/analytics";
 import { AnalyticsService } from "../lib/analyticsService";
 import RecordingControls from "./RecordingControls";
+import ProfileDropdown from "./ProfileDropdown";
 
 interface EmbedCanvasProps {
   onUrlChange?: (url: string) => void;
@@ -223,19 +224,25 @@ const EmbedCanvas: React.FC<EmbedCanvasProps> = ({
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
                     placeholder="Enter website URL (e.g., https://example.com)"
-                    className="w-full bg-background text-foreground font-mono text-sm px-3 rounded-lg border border-black/10 dark:border-white/10 focus:outline-none focus:ring-2us:ring-foreground/20 placeholder-gray-500"
+                    className="w-full bg-background text-foreground font-mono text-sm px-3 pr-20 rounded-lg border border-black/10 dark:border-white/10 focus:outline-none focus:ring-2us:ring-foreground/20 placeholder-gray-500"
                     autoFocus
                   />
                   <button
                     type="submit"
                     disabled={!url.trim()}
-                    className="absolute right-2 top-1/2 transform -translate-y-1 px-3 py-1foreground/10xt-foreground font-mono text-xs rounded border border-black/10 dark:border-white/10 hover:bg-foreground/20 transition-all duration-200 disabled:opacity-50isabled:cursor-not-allowed"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Go
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <circle cx="11" cy="11" r="7" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
                   </button>
                 </form>
               </div>
-              
+              {/* Profile Dropdown */}
+              <div className="ml-4">
+                <ProfileDropdown />
+              </div>
             </div>
             
             {/* Browser Content Area */}

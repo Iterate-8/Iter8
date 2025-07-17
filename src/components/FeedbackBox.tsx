@@ -60,12 +60,35 @@ const FeedbackBox: React.FC<FeedbackBoxProps> = ({
     const sentimentScore = analyzeSentiment(feedback);
     setSentiment(sentimentScore);
 
+    // Generate a session ID if not provided
+    const sessionId = analyticsData?.sessionId || `session_${Date.now()}`;
+
     try {
-      const { error } = await supabase
+      console.log('Submitting feedback with data:', {
+        user_id: user.id,
+        session_id: sessionId,
+        url: currentUrl,
+        feedback: feedback.trim(),
+        sentiment_score: sentimentScore,
+        feedback_type: feedbackType,
+        session_duration: analyticsData?.sessionDuration || 0,
+        interaction_count: analyticsData?.interactions || 0,
+        user_journey: analyticsData?.userJourney || [],
+        created_at: new Date().toISOString(),
+      });
+
+      // Check if Supabase client is properly configured
+      console.log('Supabase client config:', {
+        hasUser: !!user?.id,
+        user: user?.id
+      });
+
+      const { data, error } = await supabase
         .from('feedback')
         .insert([
           {
             user_id: user.id,
+            session_id: sessionId,
             url: currentUrl,
             feedback: feedback.trim(),
             sentiment_score: sentimentScore,
@@ -75,10 +98,17 @@ const FeedbackBox: React.FC<FeedbackBoxProps> = ({
             user_journey: analyticsData?.userJourney || [],
             created_at: new Date().toISOString(),
           }
-        ]);
+        ])
+        .select();
 
-      if (error) throw error;
+      console.log('Supabase response:', { data, error });
 
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+
+      console.log('Feedback submitted successfully:', data);
       setFeedback("");
       setMessage("Feedback submitted successfully!");
       
@@ -93,8 +123,22 @@ const FeedbackBox: React.FC<FeedbackBoxProps> = ({
       // Clear message after 3 seconds
       setTimeout(() => setMessage(""), 3000);
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-      setMessage(errorMessage);
+      console.error('Full error object:', error);
+      console.error('Error type:', typeof error);
+      console.error('Error constructor:', error?.constructor?.name);
+      
+      let errorMessage = 'An unknown error occurred';
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'object' && error !== null) {
+        errorMessage = JSON.stringify(error);
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
+      console.error('Error message:', errorMessage);
+      setMessage(`Error: ${errorMessage}`);
     } finally {
       setLoading(false);
     }

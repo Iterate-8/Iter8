@@ -3,7 +3,8 @@
 -- Migration: Drop existing tables and recreate with enhanced schema
 
 -- Enable UUID extension
-CREATE EXTENSION IF NOT EXISTS uuid-ossp
+CREATE EXTENSION IF NOT EXISTS uuid-ossp";
+
 -- DROP EXISTING TABLES (if they exist)
 -- ============================================================================
 
@@ -33,11 +34,10 @@ CREATE TABLE feedback (
   session_id TEXT NOT NULL,
   url TEXT NOT NULL,
   feedback TEXT NOT NULL,
-  feedback_type TEXT NOT NULL DEFAULT 'general' CHECK (feedback_type IN ('general', 'bug', 'featureux', 'performance', 'accessibility', 'ty')),
-  sentiment_score INTEGER DEFAULT 0 CHECK (sentiment_score >= -5 AND sentiment_score <= 5),
+  feedback_type TEXT NOT NULL DEFAULTgeneral' CHECK (feedback_type IN ('general,bug', featureux', 'performance', accessibility, ty')),
+  sentiment_score INTEGER DEFAULT 0K (sentiment_score >= -5 AND sentiment_score <= 5),
   session_duration INTEGER DEFAULT 0,
-  interaction_count INTEGER DEFAULT 0,
-  user_journey JSONB DEFAULT '[]'::jsonb,
+  interaction_count INTEGER DEFAULT0 user_journey JSONB DEFAULT '::jsonb,
   heatmap_data JSONB DEFAULT '[]'::jsonb,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -50,7 +50,7 @@ CREATE TABLE sessions (
   session_id TEXT UNIQUE NOT NULL,
   start_time TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   end_time TIMESTAMP WITH TIME ZONE,
-  duration INTEGER DEFAULT 0, -- in seconds
+  duration INTEGER DEFAULT 0- in seconds
   url TEXT NOT NULL,
   user_agent TEXT,
   screen_resolution TEXT,
@@ -63,7 +63,7 @@ CREATE TABLE user_actions (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   session_id TEXT NOT NULL REFERENCES sessions(session_id) ON DELETE CASCADE,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  action_type TEXT NOT NULL CHECK (action_type IN ('click', 'scroll', 'hover', 'keypress', 'navigation', 'url_change', 'page_load', 'form_submit', 'mouse_move', 'focus', 'blur', 'resize')),
+  action_type TEXT NOT NULL CHECK (action_type IN (click', scroll', hover', 'keypress,navigation, url_change', page_load,form_submit, ouse_move', focus, lur', 'resize')),
   timestamp BIGINT NOT NULL, -- Unix timestamp
   url TEXT,
   coordinates JSONB, -- {x: number, y: number}
@@ -79,11 +79,11 @@ CREATE TABLE screen_recordings (
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   recording_url TEXT,
   recording_blob BYTEA, -- For storing actual video data
-  status TEXT NOT NULL DEFAULT 'idle' CHECK (status IN ('idle', 'recording', 'paused', 'stopped', 'error')),
+  status TEXT NOT NULL DEFAULT 'idle CHECK (status IN (idle, ecording, paused',stopped', error')),
   start_time TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   end_time TIMESTAMP WITH TIME ZONE,
   duration INTEGER DEFAULT 0, -- in milliseconds
-  metadata JSONB DEFAULT '{}'::jsonb, -- {resolution: {width, height}, frameRate, quality, format}
+  metadata JSONB DEFAULT{}nb, -- {resolution: {width, height}, frameRate, quality, format}
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -96,14 +96,10 @@ CREATE TABLE analytics_summary (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   session_id TEXT NOT NULL REFERENCES sessions(session_id) ON DELETE CASCADE,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  total_actions INTEGER DEFAULT 0,
-  total_clicks INTEGER DEFAULT 0,
-  total_scrolls INTEGER DEFAULT 0,
-  total_hovers INTEGER DEFAULT 0,
+  total_actions INTEGER DEFAULT0tal_clicks INTEGER DEFAULT 0al_scrolls INTEGER DEFAULT0tal_hovers INTEGER DEFAULT 0,
   total_keypresses INTEGER DEFAULT 0,
   total_navigations INTEGER DEFAULT 0,
-  session_duration INTEGER DEFAULT 0,
-  pages_visited INTEGER DEFAULT 0,
+  session_duration INTEGER DEFAULT 0es_visited INTEGER DEFAULT 0,
   feedback_count INTEGER DEFAULT 0,
   recording_available BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -153,50 +149,50 @@ ALTER TABLE screen_recordings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE analytics_summary ENABLE ROW LEVEL SECURITY;
 
 -- Feedback policies
-CREATE POLICY "Users can insert their own feedback" ON feedback
+CREATE POLICYUsers can insert their own feedback" ON feedback
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Users can view their own feedback" ON feedback
   FOR SELECT USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can update their own feedback" ON feedback
+CREATE POLICYUsers can update their own feedback" ON feedback
   FOR UPDATE USING (auth.uid() = user_id);
 
 -- Sessions policies
-CREATE POLICY "Users can insert their own sessions" ON sessions
+CREATE POLICYUsers can insert their own sessions" ON sessions
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Users can view their own sessions" ON sessions
   FOR SELECT USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can update their own sessions" ON sessions
+CREATE POLICYUsers can update their own sessions" ON sessions
   FOR UPDATE USING (auth.uid() = user_id);
 
 -- User actions policies
-CREATE POLICY "Users can insert their own actions" ON user_actions
+CREATE POLICYUsers can insert their own actions ON user_actions
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Users can view their own actions" ON user_actions
+CREATE POLICY "Users can view their own actions ON user_actions
   FOR SELECT USING (auth.uid() = user_id);
 
 -- Screen recordings policies
-CREATE POLICY "Users can insert their own recordings" ON screen_recordings
+CREATE POLICYUsers can insert their own recordings ON screen_recordings
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Users can view their own recordings" ON screen_recordings
+CREATE POLICY "Users can view their own recordings ON screen_recordings
   FOR SELECT USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can update their own recordings" ON screen_recordings
+CREATE POLICYUsers can update their own recordings ON screen_recordings
   FOR UPDATE USING (auth.uid() = user_id);
 
 -- Analytics policies
-CREATE POLICY "Users can insert their own analytics" ON analytics_summary
+CREATE POLICYUsers can insert their own analytics ON analytics_summary
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Users can view their own analytics" ON analytics_summary
+CREATE POLICY "Users can view their own analytics ON analytics_summary
   FOR SELECT USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can update their own analytics" ON analytics_summary
+CREATE POLICYUsers can update their own analytics ON analytics_summary
   FOR UPDATE USING (auth.uid() = user_id);
 
 -- ============================================================================
@@ -241,15 +237,15 @@ BEGIN
         NEW.session_id,
         NEW.user_id,
         (SELECT COUNT(*) FROM user_actions WHERE session_id = NEW.session_id),
-        (SELECT COUNT(*) FROM user_actions WHERE session_id = NEW.session_id AND action_type = 'click'),
-        (SELECT COUNT(*) FROM user_actions WHERE session_id = NEW.session_id AND action_type = 'scroll'),
-        (SELECT COUNT(*) FROM user_actions WHERE session_id = NEW.session_id AND action_type = 'hover'),
+        (SELECT COUNT(*) FROM user_actions WHERE session_id = NEW.session_id AND action_type =click'),
+        (SELECT COUNT(*) FROM user_actions WHERE session_id = NEW.session_id AND action_type = scroll'),
+        (SELECT COUNT(*) FROM user_actions WHERE session_id = NEW.session_id AND action_type =hover'),
         (SELECT COUNT(*) FROM user_actions WHERE session_id = NEW.session_id AND action_type = 'keypress'),
         (SELECT COUNT(*) FROM user_actions WHERE session_id = NEW.session_id AND action_type = 'navigation'),
         NEW.duration,
         (SELECT COUNT(DISTINCT url) FROM user_actions WHERE session_id = NEW.session_id),
         (SELECT COUNT(*) FROM feedback WHERE session_id = NEW.session_id),
-        (SELECT EXISTS(SELECT 1 FROM screen_recordings WHERE session_id = NEW.session_id AND status = 'stopped'))
+        (SELECT EXISTS(SELECT 1 FROM screen_recordings WHERE session_id = NEW.session_id AND status = stopped'))
     )
     ON CONFLICT (session_id) DO UPDATE SET
         total_actions = EXCLUDED.total_actions,
@@ -263,7 +259,7 @@ BEGIN
         feedback_count = EXCLUDED.feedback_count,
         recording_available = EXCLUDED.recording_available,
         updated_at = NOW();
-    
+   
     RETURN NEW;
 END;
 $$ language 'plpgsql';
@@ -274,26 +270,12 @@ CREATE TRIGGER create_analytics_summary_trigger AFTER UPDATE ON sessions
     EXECUTE FUNCTION create_analytics_summary();
 
 -- ============================================================================
--- STORAGE BUCKETS FOR RECORDINGS
--- ============================================================================
-
--- Create storage bucket for recordings (run this in Supabase dashboard)
--- INSERT INTO storage.buckets (id, name, public) VALUES ('recordings', 'recordings', false);
-
--- Storage policies for recordings
--- CREATE POLICY "Users can upload their own recordings" ON storage.objects
---   FOR INSERT WITH CHECK (bucket_id = 'recordings AND auth.uid()::text = (storage.foldername(name))[1]);
-
--- CREATE POLICY "Users can view their own recordings" ON storage.objects
---   FOR SELECT USING (bucket_id = 'recordings AND auth.uid()::text = (storage.foldername(name))[1]);
-
--- ============================================================================
 -- VIEWS FOR EASY QUERYING
 -- ============================================================================
 
 -- Comprehensive session view
 CREATE VIEW session_overview AS
-SELECT 
+SELECT
     s.id,
     s.session_id,
     s.user_id,
@@ -319,14 +301,14 @@ LEFT JOIN user_actions ua ON s.session_id = ua.session_id
 LEFT JOIN feedback f ON s.session_id = f.session_id
 LEFT JOIN screen_recordings sr ON s.session_id = sr.session_id
 LEFT JOIN analytics_summary as_sum ON s.session_id = as_sum.session_id
-GROUP BY s.id, s.session_id, s.user_id, s.url, s.start_time, s.end_time, s.duration, 
-         s.user_agent, s.screen_resolution, s.device_type, as_sum.total_clicks, 
-         as_sum.total_scrolls, as_sum.total_hovers, as_sum.total_keypresses, 
+GROUP BY s.id, s.session_id, s.user_id, s.url, s.start_time, s.end_time, s.duration,
+         s.user_agent, s.screen_resolution, s.device_type, as_sum.total_clicks,
+         as_sum.total_scrolls, as_sum.total_hovers, as_sum.total_keypresses,
          as_sum.total_navigations, as_sum.pages_visited, as_sum.recording_available;
 
 -- Feedback with session data view
 CREATE VIEW feedback_with_session AS
-SELECT 
+SELECT
     f.*,
     s.url as session_url,
     s.start_time as session_start,
@@ -341,12 +323,12 @@ JOIN sessions s ON f.session_id = s.session_id;
 -- COMMENTS
 -- ============================================================================
 
-COMMENT ON TABLE feedback IS 'Enhanced feedback table with message types and comprehensive session data';
-COMMENT ON TABLE sessions IS 'Session tracking with comprehensive metadata';
+COMMENT ON TABLE feedback IS Enhanced feedback table with message types and comprehensive session data';
+COMMENT ON TABLE sessions ISSession tracking with comprehensive metadata';
 COMMENT ON TABLE user_actions IS 'Detailed user interaction tracking';
-COMMENT ON TABLE screen_recordings IS 'Screen recording storage and metadata';
+COMMENT ON TABLE screen_recordings ISScreen recording storage and metadata';
 COMMENT ON TABLE analytics_summary IS 'Aggregated analytics data for sessions';
-COMMENT ON COLUMN feedback.feedback_type IS 'Type of feedback: general, bug, feature, ux, performance, accessibility, security';
-COMMENT ON COLUMN feedback.sentiment_score IS 'Sentiment score from -5(very negative) to 5(very positive)';
-COMMENT ON COLUMN user_actions.coordinates IS 'JSON object with x and y coordinates for click/hover events';
-COMMENT ON COLUMN screen_recordings.metadata IS 'JSON object with resolution, frameRate, quality, and format information'; 
+COMMENT ON COLUMN feedback.feedback_type IS Type of feedback: general, bug, feature, ux, performance, accessibility, security';
+COMMENT ON COLUMN feedback.sentiment_score IS 'Sentiment score from-5(very negative) to 5(very positive)';
+COMMENT ON COLUMN user_actions.coordinates ISJSON object with x and y coordinates for click/hover events';
+COMMENT ON COLUMN screen_recordings.metadata ISJSON object with resolution, frameRate, quality, and format information'; 

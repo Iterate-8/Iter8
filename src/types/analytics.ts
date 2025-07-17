@@ -1,4 +1,5 @@
 export interface AnalyticsData {
+  sessionId?: string;
   sessionDuration: number;
   interactions: number;
   sentiment: number;
