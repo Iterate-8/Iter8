@@ -6,8 +6,10 @@ import EmbedCanvas from "../components/EmbedCanvas";
 import Logo from "../components/Logo";
 import AuthPage from "../components/AuthPage";
 import ProfileDropdown from "../components/ProfileDropdown";
+import SessionDataViewer from "../components/SessionDataViewer";
+import RecordingViewer from "../components/RecordingViewer";
 import { useState, useEffect } from "react";
-import { AnalyticsData } from "../types/analytics";
+import { AnalyticsData, SessionData } from "../types/analytics";
 
 export default function Home() {
   const { user, loading } = useAuth();
@@ -17,8 +19,13 @@ export default function Home() {
     interactions: 0,
     sentiment: 0,
     heatmapData: [],
-    userJourney: []
+    userJourney: [],
+    userActions: []
   });
+  const [sessionData, setSessionData] = useState<SessionData | null>(null);
+  const [showSessionViewer, setShowSessionViewer] = useState(false);
+  const [showRecordingViewer, setShowRecordingViewer] = useState(false);
+  const [currentSessionData, setCurrentSessionData] = useState<SessionData | null>(null);
 
   // Track session duration silently in background
   useEffect(() => {
@@ -36,6 +43,24 @@ export default function Home() {
   // Handle analytics updates silently
   const handleAnalyticsUpdate = (data: AnalyticsData) => {
     setAnalyticsData(data);
+  };
+
+  // Handle session data updates
+  const handleSessionData = (data: SessionData) => {
+    setSessionData(data);
+    setCurrentSessionData(data);
+    console.log('Session data received:', data);
+    // Removed automatic popup - user can access recordings via buttons
+  };
+
+  // Handle showing recording viewer
+  const handleShowRecording = () => {
+    setShowRecordingViewer(true);
+  };
+
+  // Handle closing recording viewer
+  const handleCloseRecording = () => {
+    setShowRecordingViewer(false);
   };
 
   if (loading) {
@@ -73,17 +98,35 @@ export default function Home() {
       </aside>
       
       {/* Right: Embedded Canvas */}
-      <main className="flex-1 flex items-stretch relative">
+      <main className="flex-1 flex flex-col relative">
         {/* Profile Dropdown - Top Right - KEEPING EXISTING POSITION */}
         <div className="absolute top-4 right-4 z-50">
           <ProfileDropdown />
         </div>
         
-        <EmbedCanvas 
-          onUrlChange={setCurrentUrl} 
-          onAnalyticsUpdate={handleAnalyticsUpdate}
-        />
+        <div className="flex-1 w-full h-full">
+          <EmbedCanvas 
+            onUrlChange={setCurrentUrl} 
+            onAnalyticsUpdate={handleAnalyticsUpdate}
+            onSessionData={handleSessionData}
+            onShowRecording={handleShowRecording}
+          />
+        </div>
       </main>
+      
+      {/* Session Data Viewer */}
+      <SessionDataViewer
+        sessionData={sessionData}
+        isVisible={showSessionViewer}
+        onClose={() => setShowSessionViewer(false)}
+      />
+      
+      {/* Recording Viewer */}
+      <RecordingViewer
+        sessionData={currentSessionData}
+        isVisible={showRecordingViewer}
+        onClose={handleCloseRecording}
+      />
     </div>
   );
 }

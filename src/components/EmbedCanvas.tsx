@@ -2,77 +2,64 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { AnalyticsData } from "../types/analytics";
+import { AnalyticsService } from "../lib/analyticsService";
+import RecordingControls from "./RecordingControls";
+
+import { SessionData } from "../types/analytics";
 
 interface EmbedCanvasProps {
   onUrlChange?: (url: string) => void;
   onAnalyticsUpdate?: (data: AnalyticsData) => void;
+  onSessionData?: (sessionData: SessionData) => void;
+  onShowRecording?: () => void;
 }
 
-const EmbedCanvas: React.FC<EmbedCanvasProps> = ({ onUrlChange, onAnalyticsUpdate }) => {
+const EmbedCanvas: React.FC<EmbedCanvasProps> = ({ 
+  onUrlChange, 
+  onAnalyticsUpdate,
+  onSessionData,
+  onShowRecording
+}) => {
   const [url, setUrl] = useState<string>("");
   const [submittedUrl, setSubmittedUrl] = useState<string>("");
   const [currentUrl, setCurrentUrl] = useState<string>("");
-  const [interactionCount, setInteractionCount] = useState(0);
-  const [heatmapData, setHeatmapData] = useState<any[]>([]);
-  const [userJourney, setUserJourney] = useState<any[]>([]);
+
+  const [showRecordingViewer, setShowRecordingViewer] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
+  
+  // Analytics service instance
+  const [analyticsService] = useState(() => new AnalyticsService(`session_${Date.now()}`));
 
-  // Track user interactions silently in background
-  const trackInteraction = (type: string, data?: any) => {
-    setInteractionCount(prev => prev + 1);
-    
-    const interaction = {
-      type,
-      timestamp: Date.now(),
-      url: currentUrl,
-      data
-    };
+  // Set iframe as recording target when it's available
+  useEffect(() => {
+    if (iframeRef.current) {
+      analyticsService.setRecordingTarget(iframeRef.current);
+    }
+  }, [submittedUrl, analyticsService]);
 
-    setUserJourney(prev => [...prev, interaction]);
+  // Track user interactions with enhanced logging
+  const trackInteraction = React.useCallback((type: string, data?: Record<string, unknown>, coordinates?: { x: number; y: number }) => {
+    // Log to analytics service
+    analyticsService.logCustomAction(type, data, coordinates);
 
     // Update analytics silently
     if (onAnalyticsUpdate) {
-      onAnalyticsUpdate({
-        sessionDuration: 0, // This is managed by parent
-        interactions: interactionCount + 1,
-        sentiment: 0, // This is managed by parent
-        heatmapData: [...heatmapData, data].filter(Boolean),
-        userJourney: [...userJourney, interaction]
-      });
+      const currentAnalytics = analyticsService.getCurrentAnalytics();
+      onAnalyticsUpdate(currentAnalytics);
     }
-  };
+  }, [analyticsService, onAnalyticsUpdate]);
 
-  // Track mouse movements for heatmap silently
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (canvasRef.current) {
-      const rect = canvasRef.current.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      
-      const heatmapPoint = {
-        x: Math.round(x),
-        y: Math.round(y),
-        timestamp: Date.now(),
-        intensity: 1
-      };
 
-      setHeatmapData(prev => {
-        const newData = [...prev, heatmapPoint];
-        // Keep only last 100 points for performance
-        return newData.slice(-100);
-      });
-    }
-  };
 
-  // Track clicks silently
+  // Track clicks with enhanced logging
   const handleClick = (e: React.MouseEvent) => {
     if (canvasRef.current) {
       const rect = canvasRef.current.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
       
-      trackInteraction('click', { x: Math.round(x), y: Math.round(y) });
+      trackInteraction('click', { x: Math.round(x), y: Math.round(y) }, { x: e.clientX, y: e.clientY });
     }
   };
 
@@ -88,7 +75,10 @@ const EmbedCanvas: React.FC<EmbedCanvasProps> = ({ onUrlChange, onAnalyticsUpdat
       setCurrentUrl(processedUrl);
       onUrlChange?.(processedUrl);
       
-      // Track URL submission silently
+      // Update analytics service with new URL
+      analyticsService.updateCurrentUrl(processedUrl);
+      
+      // Track URL submission with enhanced logging
       trackInteraction('url_submit', { url: processedUrl });
     }
   };
@@ -126,6 +116,7 @@ const EmbedCanvas: React.FC<EmbedCanvasProps> = ({ onUrlChange, onAnalyticsUpdat
             const newUrl = iframe.contentWindow.location.href;
             setCurrentUrl(newUrl);
             onUrlChange?.(newUrl);
+            analyticsService.updateCurrentUrl(newUrl);
             trackInteraction('page_load', { url: newUrl });
           }
         } catch {
@@ -136,7 +127,7 @@ const EmbedCanvas: React.FC<EmbedCanvasProps> = ({ onUrlChange, onAnalyticsUpdat
       iframe.addEventListener('load', handleLoad);
       return () => iframe.removeEventListener('load', handleLoad);
     }
-  }, [submittedUrl, onUrlChange]);
+  }, [submittedUrl, onUrlChange, analyticsService, trackInteraction]);
 
   // Create a proxy URL that forces same-window navigation
   const getProxyUrl = (originalUrl: string) => {
@@ -145,15 +136,25 @@ const EmbedCanvas: React.FC<EmbedCanvasProps> = ({ onUrlChange, onAnalyticsUpdat
     return originalUrl;
   };
 
+  // Handle showing recording viewer
+  const handleShowRecording = () => {
+    setShowRecordingViewer(true);
+    onShowRecording?.();
+  };
+
+  // Handle returning to website
+  const handleReturnToWebsite = () => {
+    setShowRecordingViewer(false);
+  };
+
   return (
     <div 
       ref={canvasRef}
-      className="w-full h-full p-12 bg-black border border-black/10 dark:border-white/10 relative rounded-lg flex items-center justify-center"
-      onMouseMove={handleMouseMove}
+      className="w-full h-full bg-black border border-black/10 dark:border-white/10 relative rounded-lg flex items-center justify-center"
       onClick={handleClick}
     >
       <div 
-        className="w-full max-w-6xl h-full max-h-[80vh] bg-background rounded-lg relative"
+        className="w-full h-full bg-background rounded-lg relative"
         style={{
           border: '1px solid rgba(192, 192, 192, 0.3)',
           boxShadow: '0 0 8px rgba(192, 192, 192, 0.8), 0 0 16px rgba(192, 192, 192, 0.4), inset 0 0 2px rgba(192, 192, 192, 0.1)',
@@ -182,58 +183,87 @@ const EmbedCanvas: React.FC<EmbedCanvasProps> = ({ onUrlChange, onAnalyticsUpdat
               </form>
             </div>
           </div>
+        ) : showRecordingViewer ? (
+          // Recording Viewer Mode
+          <div className="absolute inset-0 flex items-center justify-center p-8">
+            <div className="bg-background p-8 rounded-lg border border-gray-700 w-full max-w-md text-center">
+              <h2 className="text-gray-300 font-mono text-xl mb-4">Recording Viewer Active</h2>
+              <p className="text-gray-400 font-mono mb-6">The recording viewer is now open in a separate modal.</p>
+              <button
+                onClick={handleReturnToWebsite}
+                className="px-4 py-2 bg-gray-600 text-gray-200 font-mono rounded hover:bg-gray-500 transition-colors"
+              >
+                Return to Website
+              </button>
+            </div>
+          </div>
         ) : (
           // Embedded Website with Navigation
           <div className="w-full h-full relative">
-            {/* Navigation Bar */}
-            <div className="absolute top-2 left-2 z-10 flex gap-2">
-              <button
-                onClick={handleBack}
-                className="px-3 py-1 bg-gray-800 text-gray-300 font-mono text-sm rounded border border-gray-600 hover:bg-gray-700 transition-colors"
-                title="Go Back"
-              >
-                ←
-              </button>
-              <button
-                onClick={handleForward}
-                className="px-3 py-1 bg-gray-800 text-gray-300 font-mono text-sm rounded border border-gray-600 hover:bg-gray-700 transition-colors"
-                title="Go Forward"
-              >
-                →
-              </button>
-              <button
-                onClick={handleRefresh}
-                className="px-3 py-1 bg-gray-800 text-gray-300 font-mono text-sm rounded border border-gray-600 hover:bg-gray-700 transition-colors"
-                title="Refresh"
-              >
-                ↻
-              </button>
-            </div>
-            
-            {/* Current URL Display */}
-            <div className="absolute top-2 left-32 right-20 z-10">
-              <div className="bg-gray-800 text-gray-300 font-mono text-xs px-2 py-1 rounded border border-gray-600 truncate">
-                {currentUrl}
+            {/* Top Navigation Bar */}
+            <div className="absolute top-0 left-0 right-0 z-20 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700/50 h-12">
+              <div className="flex items-center justify-between px-4 py-2 h-full">
+                {/* Left: Navigation Controls */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleBack}
+                    className="p-2 bg-gray-800/80 text-gray-300 font-mono text-sm rounded-lg border border-gray-600/50 hover:bg-gray-700/80 transition-all duration-200 hover:scale-105"
+                    title="Go Back"
+                  >
+                    ←
+                  </button>
+                  <button
+                    onClick={handleForward}
+                    className="p-2 bg-gray-800/80 text-gray-300 font-mono text-sm rounded-lg border border-gray-600/50 hover:bg-gray-700/80 transition-all duration-200 hover:scale-105"
+                    title="Go Forward"
+                  >
+                    →
+                  </button>
+                  <button
+                    onClick={handleRefresh}
+                    className="p-2 bg-gray-800/80 text-gray-300 font-mono text-sm rounded-lg border border-gray-600/50 hover:bg-gray-700/80 transition-all duration-200 hover:scale-105"
+                    title="Refresh"
+                  >
+                    ↻
+                  </button>
+                </div>
+                
+                {/* Center: URL Display */}
+                <div className="flex-1 mx-4">
+                  <div className="bg-gray-800/80 text-gray-300 font-mono text-xs px-3 py-2 rounded-lg border border-gray-600/50 truncate max-w-md mx-auto">
+                    {currentUrl}
+                  </div>
+                </div>
+                
+                {/* Right: Recording Controls */}
+                <div className="flex items-center gap-2">
+                  <RecordingControls
+                    analyticsService={analyticsService}
+                    onSessionData={onSessionData}
+                    onAnalyticsUpdate={onAnalyticsUpdate}
+                    isNavbar={true}
+                    onShowRecording={handleShowRecording}
+                  />
+                  <button
+                    onClick={() => {
+                      setSubmittedUrl("");
+                      trackInteraction('url_change');
+                    }}
+                    className="px-3 py-2 bg-gray-800/80 text-gray-300 font-mono text-sm rounded-lg border border-gray-600/50 hover:bg-gray-700/80 transition-all duration-200 hover:scale-105"
+                  >
+                    Change URL
+                  </button>
+                </div>
               </div>
             </div>
-            
-            {/* Change URL Button */}
-            <button
-              onClick={() => {
-                setSubmittedUrl("");
-                trackInteraction('url_change');
-              }}
-              className="absolute bottom-2 right-2 z-10 px-3 py-1 bg-gray-800 text-gray-300 font-mono text-sm rounded border border-gray-600 hover:bg-gray-700 transition-colors"
-            >
-              Change URL
-            </button>
             
             {/* Iframe with Navigation Support */}
             <iframe
               ref={iframeRef}
               src={getProxyUrl(submittedUrl)}
               title="Startup Website Preview"
-              className="w-full h-full border-0 rounded-lg bg-gray-800"
+              className="absolute top-12 left-0 right-0 bottom-0 border-0 bg-gray-800 w-full h-full"
+              style={{ height: 'calc(100% - 48px)' }}
               allow="fullscreen"
               sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation allow-top-navigation-by-user-activation"
             />
