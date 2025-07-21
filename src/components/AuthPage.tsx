@@ -7,6 +7,8 @@ import Logo from "./Logo";
 const AuthPage: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [startupName, setStartupName] = useState("");
+  const [userType, setUserType] = useState<"customer" | "company" | null>(null);
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -17,19 +19,52 @@ const AuthPage: React.FC = () => {
     setMessage("");
 
     try {
+      // Validate user type is selected
+      if (!userType) {
+        throw new Error("Please select whether you're a customer or company member");
+      }
+
+      // Validate startup name is provided for both sign in and sign up
+      if (!startupName.trim()) {
+        throw new Error("Please enter the startup name you're testing");
+      }
+
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            data: {
+              startup_name: startupName.trim(),
+              user_type: userType
+            }
+          }
         });
         if (error) throw error;
+        console.log('Successfully signed up with metadata:', { startup_name: startupName.trim(), user_type: userType });
         setMessage("Check your email for the confirmation link!");
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
-        if (error) throw error;
+        if (signInError) throw signInError;
+        
+        // Update user metadata with startup name and user type for existing users
+        const { error: updateError } = await supabase.auth.updateUser({
+          data: {
+            startup_name: startupName.trim(),
+            user_type: userType
+          }
+        });
+        if (updateError) {
+          console.warn('Could not update user metadata:', updateError);
+        } else {
+          console.log('Successfully updated user metadata with:', { startup_name: startupName.trim(), user_type: userType });
+        }
+        
+        // Force a page reload to ensure the new metadata is picked up
+        window.location.reload();
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
@@ -63,6 +98,46 @@ const AuthPage: React.FC = () => {
                 required
                 className="w-full p-3 bg-gray-800 border border-gray-600 rounded font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500"
               />
+            </div>
+
+            <div>
+              <input
+                type="text"
+                value={startupName}
+                onChange={(e) => setStartupName(e.target.value)}
+                placeholder="Startup name you're testing"
+                required
+                className="w-full p-3 bg-gray-800 border border-gray-600 rounded font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500"
+              />
+            </div>
+
+            {/* User Type Selection */}
+            <div>
+              <label className="block text-gray-400 font-mono text-sm mb-2">I am a:</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setUserType("customer")}
+                  className={`p-3 rounded border font-mono transition-colors ${
+                    userType === "customer"
+                      ? 'bg-gray-700 border-gray-500 text-gray-200'
+                      : 'bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700 hover:text-gray-200'
+                  }`}
+                >
+                  Customer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUserType("company")}
+                  className={`p-3 rounded border font-mono transition-colors ${
+                    userType === "company"
+                      ? 'bg-gray-700 border-gray-500 text-gray-200'
+                      : 'bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700 hover:text-gray-200'
+                  }`}
+                >
+                  Company Member
+                </button>
+              </div>
             </div>
 
             <div>

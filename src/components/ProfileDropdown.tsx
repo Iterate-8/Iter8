@@ -7,7 +7,7 @@ import { supabase } from "../lib/supabase";
 const ProfileDropdown: React.FC = () => {
   const { user } = useAuth();
   const [feedbackCount, setFeedbackCount] = useState<number>(0);
-  const [isHovered, setIsHovered] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
   const fetchFeedbackCount = useCallback(async () => {
     try {
@@ -34,23 +34,26 @@ const ProfileDropdown: React.FC = () => {
     await supabase.auth.signOut();
   };
 
+  const toggleDropdown = () => {
+    setIsOpen(!isOpen);
+  };
+
   if (!user) return null;
 
   return (
-    <div 
-      className="relative"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
+    <div className="relative">
       {/* Profile Icon - Always Visible */}
-      <div className="w-8 h-8 bg-background rounded-full flex items-center justify-center cursor-pointer border border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+      <div 
+        className="w-8 h-8 bg-background rounded-full flex items-center justify-center cursor-pointer border border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+        onClick={toggleDropdown}
+      >
         <span className="text-gray-300 font-mono text-sm">
           {user.email?.charAt(0).toUpperCase()}
         </span>
       </div>
 
-      {/* Horizontal Profile Display - Only on Hover */}
-      {isHovered && (
+      {/* Horizontal Profile Display - Toggle on Click */}
+      {isOpen && (
         <div className="absolute top-0 right-10 flex items-center gap-4 bg-gray-900 px-4 py-2 rounded-lg border border-gray-700 shadow-lg z-50">
           {/* Account Info */}
           <div className="text-gray-400 font-mono text-sm">

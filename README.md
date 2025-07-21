@@ -32,6 +32,7 @@ DROP TABLE IF EXISTS feedback CASCADE;
 CREATE TABLE feedback (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  startup_name VARCHAR(255) NOT NULL,
   feedback_type VARCHAR(20) NOT NULL CHECK (feedback_type IN ('general', 'bug', 'feature', 'ux')),
   feedback TEXT NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
@@ -40,6 +41,7 @@ CREATE TABLE feedback (
 
 -- Create indexes for better performance
 CREATE INDEX idx_feedback_user_id ON feedback(user_id);
+CREATE INDEX idx_feedback_startup_name ON feedback(startup_name);
 CREATE INDEX idx_feedback_type ON feedback(feedback_type);
 CREATE INDEX idx_feedback_created_at ON feedback(created_at);
 
@@ -100,6 +102,7 @@ Open [http://localhost:3000](http://localhost:3000) to view the application.
 ### feedback table
 - `id`: Unique identifier (UUID)
 - `user_id`: Reference to authenticated user
+- `startup_name`: Name of the startup being tested
 - `feedback_type`: Type of feedback ('general', 'bug', 'feature', 'ux')
 - `feedback`: User's feedback text
 - `created_at`: Timestamp of submission

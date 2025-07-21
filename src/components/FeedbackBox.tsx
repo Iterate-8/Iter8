@@ -27,8 +27,18 @@ const FeedbackBox: React.FC<FeedbackBoxProps> = ({
     setMessage("");
 
     try {
+      // Get startup name from user metadata
+      let startupName = user.user_metadata?.startup_name;
+      
+      // If no startup name in metadata, prompt user to sign out and sign in again
+      if (!startupName) {
+        setMessage("Please sign out and sign in again to set your startup name");
+        return;
+      }
+      
       console.log('Submitting feedback with data:', {
         user_id: user.id,
+        startup_name: startupName,
         feedback_type: feedbackType,
         feedback: feedback.trim()
       });
@@ -38,6 +48,7 @@ const FeedbackBox: React.FC<FeedbackBoxProps> = ({
         .insert([
           {
             user_id: user.id,
+            startup_name: startupName,
             feedback_type: feedbackType,
             feedback: feedback.trim()
           }
