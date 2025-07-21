@@ -31,7 +31,7 @@ export default function Home() {
   }, [user, loading, roleLoading, isCompanyMember, router]);
 
   if (loading || roleLoading) {
-    return (
+  return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
         <div className="text-center">
           <Logo />

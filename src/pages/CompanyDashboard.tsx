@@ -66,12 +66,34 @@ const CompanyDashboard: React.FC = () => {
     }
   };
 
-  // Simple summary generation (replace with actual AI API)
+  // AI summary generation using Hugging Face BART model
   const generateSummary = async (feedback: string): Promise<string> => {
-    // This is a placeholder - replace with actual AI API call
-    const words = feedback.split(' ');
-    const keyPoints = words.slice(0, 20).join(' ');
-    return `Summary: ${keyPoints}${words.length > 20 ? '...' : ''}`;
+    try {
+      const response = await fetch('/api/summarize', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: feedback }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 429) {
+          return "OpenAI rate limit reached. Please wait a few minutes and try again.";
+        }
+        return errorData.error || `API Error: ${response.status}`;
+      }
+
+      const data = await response.json();
+      if (data.error) {
+        return data.error;
+      }
+      return data.summary || "Unable to generate summary";
+    } catch (error) {
+      console.error('Error generating AI summary:', error);
+      return "Unable to generate summary at this time.";
+    }
   };
 
   const handleEntryClick = (entry: FeedbackEntry) => {
@@ -79,18 +101,44 @@ const CompanyDashboard: React.FC = () => {
     generateAISummary(entry.feedback);
   };
 
-  const handleHideEntry = (entryId: string, e: React.MouseEvent) => {
+  const handleHideEntry = async (entryId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setHiddenEntries(prev => new Set([...prev, entryId]));
-    if (selectedEntry?.id === entryId) {
-      setSelectedEntry(null);
-      setAiSummary("");
+    
+    try {
+      // Delete from Supabase
+      const { error } = await supabase
+        .from('feedback')
+        .delete()
+        .eq('id', entryId);
+
+      if (error) {
+        console.error('Error deleting feedback entry:', error);
+        alert('Failed to delete entry. Please try again.');
+        return;
+      }
+
+      // Remove from local state
+      setFeedbackEntries(prev => prev.filter(entry => entry.id !== entryId));
+      setHiddenEntries(prev => new Set([...prev, entryId]));
+      
+      // Clear selection if this was the selected entry
+      if (selectedEntry?.id === entryId) {
+        setSelectedEntry(null);
+        setAiSummary("");
+      }
+    } catch (error) {
+      console.error('Error deleting feedback entry:', error);
+      alert('Failed to delete entry. Please try again.');
     }
   };
 
   const handleCompleteEntry = (entryId: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    
+    // Just hide from view (mark as completed) but keep in database
     setHiddenEntries(prev => new Set([...prev, entryId]));
+    
+    // Clear selection if this was the selected entry
     if (selectedEntry?.id === entryId) {
       setSelectedEntry(null);
       setAiSummary("");
@@ -321,8 +369,23 @@ const CompanyDashboard: React.FC = () => {
                     <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
                     <span className="text-gray-400">Generating summary...</span>
                   </div>
+                ) : aiSummary ? (
+                  <div className="space-y-2">
+                    {aiSummary.split('\n').map((line, index) => (
+                      <div key={index} className="flex items-start gap-2">
+                        {line.trim().startsWith('•') || line.trim().startsWith('-') ? (
+                          <>
+                            <span className="text-gray-400 mt-0.5">•</span>
+                            <span className="flex-1">{line.trim().substring(1).trim()}</span>
+                          </>
+                        ) : (
+                          <span className="flex-1">{line}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 ) : (
-                  aiSummary || "Click on an entry to generate AI summary"
+                  "Click on an entry to generate AI summary"
                 )}
               </div>
               </div>

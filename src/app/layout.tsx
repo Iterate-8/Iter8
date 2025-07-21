@@ -3,8 +3,11 @@ import "./globals.css";
 import { AuthProvider } from "../components/AuthProvider";
 
 export const metadata: Metadata = {
-  title: "Customer Feedback - Startup Website",
-  description: "Provide feedback on startup websites and applications",
+  title: "Iterate",
+  description: "Customer feedback platform for startups",
+  icons: {
+    icon: '/iter8_logo.png',
+  },
 };
 
 export default function RootLayout({
