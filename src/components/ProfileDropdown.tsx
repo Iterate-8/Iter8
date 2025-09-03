@@ -44,34 +44,34 @@ const ProfileDropdown: React.FC = () => {
     <div className="relative">
       {/* Profile Icon - Always Visible */}
       <div 
-        className="w-8 h-8 bg-background rounded-full flex items-center justify-center cursor-pointer border border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+        className="w-8 h-8 bg-white rounded-full flex items-center justify-center cursor-pointer border border-brand-300 hover:bg-brand-50 transition-colors"
         onClick={toggleDropdown}
       >
-        <span className="text-gray-300 font-mono text-sm">
+        <span className="text-foreground font-sans text-sm">
           {user.email?.charAt(0).toUpperCase()}
         </span>
       </div>
 
       {/* Horizontal Profile Display - Toggle on Click */}
       {isOpen && (
-        <div className="absolute top-0 right-10 flex items-center gap-4 bg-gray-900 px-4 py-2 rounded-lg border border-gray-700 shadow-lg z-50">
+        <div className="absolute top-0 right-10 flex items-center gap-4 bg-white px-4 py-2 rounded-lg border border-brand-200 shadow-lg z-50">
           {/* Account Info */}
-          <div className="text-gray-400 font-mono text-sm">
-            Account: <span className="text-gray-200">{user.email}</span>
+          <div className="text-foreground/70 font-sans text-sm">
+            Account: <span className="text-foreground">{user.email}</span>
           </div>
           
           {/* Divider */}
-          <div className="text-gray-600">|</div>
+          <div className="text-foreground/40">|</div>
           
           {/* Feedback Count */}
-          <div className="text-gray-400 font-mono text-sm">
-            Feedback: <span className="text-gray-200">{feedbackCount}</span>
+          <div className="text-foreground/70 font-sans text-sm">
+            Feedback: <span className="text-foreground">{feedbackCount}</span>
           </div>
           
           {/* Sign Out Button */}
           <button
             onClick={handleSignOut}
-            className="text-gray-400 font-mono text-sm hover:text-gray-200 transition-colors"
+            className="text-foreground/70 font-sans text-sm hover:text-foreground transition-colors"
           >
             Sign Out
           </button>

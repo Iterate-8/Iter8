@@ -65,10 +65,10 @@ const CustomerDashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+      <div className="min-h-screen bg-white text-foreground flex items-center justify-center">
         <div className="text-center">
           <Logo />
-          <div className="mt-4 text-gray-400 font-mono">Loading...</div>
+          <div className="mt-4 text-foreground/60 font-sans">Loading...</div>
         </div>
       </div>
     );
@@ -79,9 +79,9 @@ const CustomerDashboard: React.FC = () => {
   }
 
   return (
-    <div className="flex min-h-screen w-full bg-background text-foreground">
+    <div className="flex min-h-screen w-full bg-white text-foreground">
       {/* Left: Feedback Only - Clean Interface for End Users */}
-      <aside className="w-1/3 min-w-[320px] max-w-md flex flex-col border-r border-black/10 dark:border-white/10 p-6">
+      <aside className="w-1/3 min-w-[320px] max-w-md flex flex-col border-r border-brand-200 p-6 bg-white">
         {/* Logo at top */}
         <div className="mb-8">
           <Logo />
@@ -96,7 +96,7 @@ const CustomerDashboard: React.FC = () => {
       </aside>
       
       {/* Right: Embedded Canvas */}
-      <main className="flex-1 flex flex-col relative bg-gray-900 text-white">
+      <main className="flex-1 flex flex-col relative bg-white text-foreground">
         
         <div className="flex-1 w-full h-full">
           <EmbedCanvas 

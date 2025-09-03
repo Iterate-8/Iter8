@@ -95,10 +95,10 @@ const FeedbackBox: React.FC<FeedbackBoxProps> = ({
           <button
             key={type}
             onClick={() => setFeedbackType(type)}
-            className={`px-3 py-1 rounded border font-mono transition-colors ${
+            className={`px-3 py-1 rounded border font-sans transition-colors ${
               feedbackType === type
-                ? 'bg-foreground/10 border-black/10 dark:border-white/10 text-foreground'
-                : 'bg-background border-black/10 dark:border-white/10 text-foreground hover:bg-foreground/5'
+                ? 'bg-brand-100 border-brand-300 text-foreground'
+                : 'bg-white border-brand-300 text-foreground/70 hover:bg-brand-50'
             }`}
           >
             {type === 'ux' ? 'UX' : type.charAt(0).toUpperCase() + type.slice(1)}
@@ -115,17 +115,17 @@ const FeedbackBox: React.FC<FeedbackBoxProps> = ({
             placeholder="Share your thoughts, report issues, or suggest improvements..."
             rows={4}
             disabled={loading}
-            className="resize-none rounded-md border border-black/10 dark:border-white/10 bg-transparent p-4 pb-8 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20 min-h-[100px] leading-relaxed w-full pr-16"
+            className="resize-none rounded-md border border-brand-300 bg-white p-4 pb-8 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-brand-400 min-h-[100px] leading-relaxed w-full pr-16"
           />
           
           {/* Send Button positioned at bottom right of textarea */}
           <button
             type="submit"
             disabled={loading || !feedback.trim()}
-            className="absolute bottom-3 right-3 p-1.5 rounded-md bg-background text-foreground border border-black/10 dark:border-white/10 font-mono transition-all disabled:opacity-50 isabled:cursor-not-allowed hover:bg-foreground/10 flex items-center justify-center"
+            className="absolute bottom-3 right-3 p-1.5 rounded-md bg-brand-600 text-white border border-brand-500 font-sans transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 flex items-center justify-center"
           >
             {loading ? (
-              <div className="w-3 h-3 border-2 border-foreground border-t-transparent rounded-full animate-spin" />
+              <div className="w-3 h-3 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
             ) : (
               <svg 
                 className="w-3 h-3" 
@@ -147,7 +147,7 @@ const FeedbackBox: React.FC<FeedbackBoxProps> = ({
 
         
         {message && (
-          <div className="text-sm font-mono text-center p-2 rounded bg-gray-800 border border-gray-600">
+          <div className="text-sm font-sans text-center p-2 rounded bg-brand-100 border border-brand-300 text-foreground">
             {message}
           </div>
         )}

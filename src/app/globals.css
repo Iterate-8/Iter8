@@ -1,28 +1,50 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Brand palette derived from the bottom half of the provided purple scale */
+  --brand-50: #ffffff;
+  --brand-100: #f5f0ff;
+  --brand-200: #ede4ff;
+  --brand-300: #ddccff;
+  --brand-400: #c7a9ff;
+  --brand-500: #a47aff;
+  --brand-600: #7c4dff;
+
+  /* Light theme surface & text */
+  --background: var(--brand-50);
+  --foreground: #2a1848; /* dark plum for strong contrast */
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: "Fira Code", "Fira Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
-  --font-mono: "Fira Code", "Fira Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  /* Expose brand colors to utility classes (bg-*, text-*, border-*) */
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-primary: var(--brand-600);
+  --color-accent: var(--brand-500);
+  --color-muted: var(--brand-100);
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-mono: var(--font-sans), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    /* Force light theme even when system is dark to ensure readability */
+    --background: #ffffff;
+    --foreground: #1c1237;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: "Fira Code", "Fira Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
   font-feature-settings: "liga" 1, "calt" 1;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

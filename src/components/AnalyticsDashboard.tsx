@@ -73,43 +73,43 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
   return (
     <div className="space-y-4">
       {/* Real-time Session Data */}
-      <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-800">
-        <h3 className="text-sm font-semibold text-gray-300 mb-3">Live Session</h3>
+      <div className="bg-brand-50 p-4 rounded-lg border border-brand-200">
+        <h3 className="text-sm font-semibold text-foreground mb-3">Live Session</h3>
         <div className="grid grid-cols-2 gap-3 text-xs">
           <div>
-            <div className="text-gray-400">Duration</div>
-            <div className="text-white font-mono">
+            <div className="text-foreground/70">Duration</div>
+            <div className="text-foreground font-mono">
               {Math.floor(analyticsData.sessionDuration / 60)}:{(analyticsData.sessionDuration % 60).toString().padStart(2, '0')}
             </div>
           </div>
           <div>
-            <div className="text-gray-400">Interactions</div>
-            <div className="text-white font-mono">{analyticsData.interactions}</div>
+            <div className="text-foreground/70">Interactions</div>
+            <div className="text-foreground font-mono">{analyticsData.interactions}</div>
           </div>
           <div>
-            <div className="text-gray-400">Current Sentiment</div>
+            <div className="text-foreground/70">Current Sentiment</div>
             <div className={`font-mono ${getSentimentColor(analyticsData.sentiment)}`}>
               {getSentimentIcon(analyticsData.sentiment)} {analyticsData.sentiment > 0 ? '+' : ''}{analyticsData.sentiment}
             </div>
           </div>
           <div>
-            <div className="text-gray-400">Heatmap Points</div>
-            <div className="text-white font-mono">{analyticsData.heatmapData.length}</div>
+            <div className="text-foreground/70">Heatmap Points</div>
+            <div className="text-foreground font-mono">{analyticsData.heatmapData.length}</div>
           </div>
         </div>
       </div>
 
       {/* Historical Insights */}
       {insights && (
-        <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-800">
-          <h3 className="text-sm font-semibold text-gray-300 mb-3">Historical Insights</h3>
+        <div className="bg-brand-50 p-4 rounded-lg border border-brand-200">
+          <h3 className="text-sm font-semibold text-foreground mb-3">Historical Insights</h3>
           <div className="space-y-3 text-xs">
             <div className="flex items-center justify-between">
-              <span className="text-gray-400">Total Feedback</span>
-              <span className="text-white font-mono">{insights.totalFeedback}</span>
+              <span className="text-foreground/70">Total Feedback</span>
+              <span className="text-foreground font-mono">{insights.totalFeedback}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-gray-400">Avg Sentiment</span>
+              <span className="text-foreground/70">Avg Sentiment</span>
               <span className={`font-mono ${getSentimentColor(insights.avgSentiment)}`}>
                 {getSentimentIcon(insights.avgSentiment)} {insights.avgSentiment}
               </span>
@@ -117,12 +117,12 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             
             {/* Feedback Type Distribution */}
             <div>
-              <div className="text-gray-400 mb-2">Feedback Types</div>
+              <div className="text-foreground/70 mb-2">Feedback Types</div>
               <div className="space-y-1">
                 {Object.entries(insights.feedbackTypes).map(([type, count]) => (
                   <div key={type} className="flex items-center justify-between">
-                    <span className="text-gray-400 capitalize">{type}</span>
-                    <span className="text-white font-mono">{count as number}</span>
+                    <span className="text-foreground/70 capitalize">{type}</span>
+                    <span className="text-foreground font-mono">{count as number}</span>
                   </div>
                 ))}
               </div>
@@ -132,17 +132,17 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       )}
 
       {/* User Journey */}
-      <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-800">
-        <h3 className="text-sm font-semibold text-gray-300 mb-3">User Journey</h3>
+      <div className="bg-brand-50 p-4 rounded-lg border border-brand-200">
+        <h3 className="text-sm font-semibold text-foreground mb-3">User Journey</h3>
         <div className="space-y-2 text-xs">
           <div className="flex items-center justify-between">
-            <span className="text-gray-400">Journey Steps</span>
-            <span className="text-white font-mono">{analyticsData.userJourney.length}</span>
+            <span className="text-foreground/70">Journey Steps</span>
+            <span className="text-foreground font-mono">{analyticsData.userJourney.length}</span>
           </div>
           {analyticsData.userJourney.length > 0 && (
             <div className="max-h-20 overflow-y-auto">
               {analyticsData.userJourney.slice(-3).map((step, index) => (
-                <div key={index} className="text-gray-400 font-mono text-xs">
+                <div key={index} className="text-foreground/70 font-mono text-xs">
                   {step.type}: {step.data?.url || step.data?.action || 'interaction'}
                 </div>
               ))}
@@ -153,7 +153,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
       {/* Loading State */}
       {loading && (
-        <div className="text-center text-gray-400 text-xs">
+        <div className="text-center text-foreground/70 text-xs">
           Loading insights...
         </div>
       )}

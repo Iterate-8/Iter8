@@ -32,10 +32,10 @@ export default function Home() {
 
   if (loading || roleLoading) {
   return (
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+      <div className="min-h-screen bg-white text-foreground flex items-center justify-center">
         <div className="text-center">
           <Logo />
-          <div className="mt-4 text-gray-400 font-mono">Loading...</div>
+          <div className="mt-4 text-foreground/60 font-sans">Loading...</div>
         </div>
       </div>
     );
@@ -47,10 +47,10 @@ export default function Home() {
 
   // Show loading while redirecting
   return (
-    <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+    <div className="min-h-screen bg-white text-foreground flex items-center justify-center">
       <div className="text-center">
         <Logo />
-        <div className="mt-4 text-gray-400 font-mono">Redirecting...</div>
+        <div className="mt-4 text-foreground/60 font-sans">Redirecting...</div>
       </div>
     </div>
   );

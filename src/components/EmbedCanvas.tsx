@@ -175,40 +175,40 @@ const EmbedCanvas: React.FC<EmbedCanvasProps> = ({
   return (
     <div 
       ref={canvasRef}
-      className="w-full h-full bg-black border border-black/10 dark:border-white/10 relative rounded-lg flex items-center justify-center"
+      className="w-full h-full bg-white border border-brand-200 relative rounded-lg flex items-center justify-center"
       onClick={handleClick}
     >
       <div 
-        className="w-full h-full bg-background rounded-lg relative"
+        className="w-full h-full bg-white rounded-lg relative"
         style={{
-          border: '1px solid rgba(192, 192, 192, 0.3)',
-          boxShadow: '0 0 8px rgba(192, 192, 192, 0.8), 0 0 16px rgba(192, 192, 192, 0.4), inset 0 0 2px rgba(192, 192, 192, 0.1)',
-          filter: 'drop-shadow(0 0 2px rgba(192, 192, 192, 0.6))'
+          border: '1px solid rgba(173, 133, 255, 0.3)',
+          boxShadow: '0 0 8px rgba(176, 123, 255, 0.25), 0 0 16px rgba(139, 92, 246, 0.15), inset 0 0 2px rgba(176, 123, 255, 0.15)',
+          filter: 'drop-shadow(0 0 2px rgba(176, 123, 255, 0.35))'
         }}
       >
         {!submittedUrl ? (
           // Browser-like Interface
           <div className="w-full h-full flex flex-col">
             {/* Browser Navbar */}
-            <div className="bg-background border-b border-black/10 dark:border-white/10 flex items-center px-4 gap-2">
+            <div className="bg-white border-b border-brand-200 flex items-center px-4 gap-2">
               {/* Navigation Controls */}
               <div className="flex items-center gap-1">
                 <button
-                  className="p-2 bg-background text-foreground font-mono text-sm rounded-lg border border-black/10 dark:border-white/10 hover:bg-foreground/10 transition-all duration-200 hover:scale-105 disabled:opacity-50"
+                  className="p-2 bg-white text-foreground font-sans text-sm rounded-lg border border-brand-300 hover:bg-brand-50 transition-all duration-200 hover:scale-105 disabled:opacity-50"
                   title="Go Back"
                   disabled
                 >
                   ←
                 </button>
                 <button
-                  className="p-2 bg-background text-foreground font-mono text-sm rounded-lg border border-black/10 dark:border-white/10 hover:bg-foreground/10 transition-all duration-200 hover:scale-105 disabled:opacity-50"
+                  className="p-2 bg-white text-foreground font-sans text-sm rounded-lg border border-brand-300 hover:bg-brand-50 transition-all duration-200 hover:scale-105 disabled:opacity-50"
                   title="Go Forward"
                   disabled
                 >
                   →
                 </button>
                 <button
-                  className="p-2 bg-background text-foreground font-mono text-sm rounded-lg border border-black/10 dark:border-white/10 hover:bg-foreground/10 transition-all duration-200 hover:scale-105 disabled:opacity-50"
+                  className="p-2 bg-white text-foreground font-sans text-sm rounded-lg border border-brand-300 hover:bg-brand-50 transition-all duration-200 hover:scale-105 disabled:opacity-50"
                   title="Refresh"
                   disabled
                 >
@@ -224,13 +224,13 @@ const EmbedCanvas: React.FC<EmbedCanvasProps> = ({
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
                     placeholder="Enter website URL (e.g., https://example.com)"
-                    className="w-full bg-background text-foreground font-mono text-sm px-3 pr-20 rounded-lg border border-black/10 dark:border-white/10 focus:outline-none focus:ring-2us:ring-foreground/20 placeholder-gray-500"
+                    className="w-full bg-white text-foreground font-sans text-sm px-3 pr-20 rounded-lg border border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-foreground/40"
                     autoFocus
                   />
                   <button
                     type="submit"
                     disabled={!url.trim()}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center text-foreground/60 hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <circle cx="11" cy="11" r="7" />
@@ -318,13 +318,13 @@ const EmbedCanvas: React.FC<EmbedCanvasProps> = ({
                         value={editingUrl}
                         onChange={(e) => setEditingUrl(e.target.value)}
                         onBlur={handleUrlCancel}
-                        className="w-full bg-background text-foreground font-mono text-xs px-3 rounded-lg border border-black/10 dark:border-white/10 focus:outline-none focus:ring-2us:ring-foreground/20"
+                        className="w-full bg-white text-foreground font-sans text-xs px-3 rounded-lg border border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-400"
                         autoFocus
                       />
                     </form>
                   ) : (
                     <div 
-                      className="bg-background text-foreground font-mono text-xs px-3 rounded-lg border border-black/10 dark:border-white/10 truncate max-w-md mx-auto cursor-pointer hover:bg-foreground/5 transition-colors"
+                      className="bg-white text-foreground font-sans text-xs px-3 rounded-lg border border-brand-300 truncate max-w-md mx-auto cursor-pointer hover:bg-brand-50 transition-colors"
                       onClick={handleUrlEdit}
                       title="Click to edit URL"
                     >
@@ -351,7 +351,7 @@ const EmbedCanvas: React.FC<EmbedCanvasProps> = ({
               ref={iframeRef}
               src={getProxyUrl(submittedUrl)}
               title="Startup Website Preview"
-              className="absolute top-12 left-0 right-0 bottom-0 border-0 bg-gray-800 w-full h-full"
+              className="absolute top-12 left-0 right-0 bottom-0 border-0 bg-white w-full h-full"
               style={{ height: 'calc(100% - 48px)' }}
               allow="fullscreen"
               sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation allow-top-navigation-by-user-activation"

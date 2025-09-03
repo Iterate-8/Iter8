@@ -17,13 +17,55 @@ interface FeedbackEntry {
 
 const CompanyDashboard: React.FC = () => {
   const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<'tickets' | 'research'>("tickets");
   const [feedbackEntries, setFeedbackEntries] = useState<FeedbackEntry[]>([]);
   const [selectedEntry, setSelectedEntry] = useState<FeedbackEntry | null>(null);
   const [aiSummary, setAiSummary] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [summaryLoading, setSummaryLoading] = useState(false);
-  const [maximizedBox, setMaximizedBox] = useState<'entry' | 'summary' | null>(null);
   const [hiddenEntries, setHiddenEntries] = useState<Set<string>>(new Set());
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+  // Keyboard navigation focus index for tickets
+  const [focusedIndex, setFocusedIndex] = useState<number>(-1);
+  // AI-first view state
+  const [themes, setThemes] = useState<Array<{ key: string; title: string; count: number; urgency: 'High'|'Medium'|'Low'; entries: FeedbackEntry[]; priority: number; confidence: number; segments: string[] }>>([]);
+  const [selectedThemeKey, setSelectedThemeKey] = useState<string | null>(null);
+  const [approvalsSent, setApprovalsSent] = useState<number>(() => {
+    const v = typeof window !== 'undefined' ? localStorage.getItem('iter8_approvals_sent') : null;
+    return v ? Number(v) || 0 : 0;
+  });
+  const [justApproved, setJustApproved] = useState<boolean>(false);
+
+  // Research state (Clado)
+  interface CladoProfileBrief {
+    id?: string;
+    name?: string;
+    location?: string;
+    location_country?: string;
+    headline?: string;
+    description?: string;
+    linkedin_url?: string;
+    picture_permalink?: string;
+    connections_count?: number;
+    followers_count?: number;
+    is_working?: boolean;
+    is_decision_maker?: boolean;
+    total_experience_duration_months?: number;
+    projected_total_salary?: number;
+    post_count?: number;
+    skills?: string[];
+  }
+  interface CladoResultItem {
+    profile?: CladoProfileBrief;
+    experience?: Array<{ title?: string; company_name?: string; start_date?: string; end_date?: string; description?: string; location?: string; }>;
+    education?: Array<{ degree?: string; field_of_study?: string; school_name?: string; start_date?: string; end_date?: string; }>;
+  }
+  const [researchQuery, setResearchQuery] = useState<string>("");
+  const [researchLimit, setResearchLimit] = useState<number>(10);
+  const [researchLoading, setResearchLoading] = useState<boolean>(false);
+  const [researchError, setResearchError] = useState<string>("");
+  const [researchResults, setResearchResults] = useState<CladoResultItem[]>([]);
+  const [selectedResearchIndex, setSelectedResearchIndex] = useState<number | null>(null);
 
   // Fetch all feedback entries
   useEffect(() => {
@@ -157,11 +199,103 @@ const CompanyDashboard: React.FC = () => {
 
   const getFeedbackTypeColor = (type: string) => {
     switch (type) {
-      case 'bug': return 'text-red-400';
-      case 'feature': return 'text-gray-400';
-      case 'ux': return 'text-gray-400';
-      default: return 'text-gray-400';
+      case 'bug': return 'text-red-500';
+      case 'feature': return 'text-brand-600';
+      case 'ux': return 'text-brand-500';
+      default: return 'text-foreground/70';
     }
+  };
+
+  // Invoke Clado search API via our proxy route
+  const performResearchSearch = async () => {
+    if (!researchQuery.trim()) {
+      setResearchError("Enter a search query");
+      return;
+    }
+    setResearchLoading(true);
+    setResearchError("");
+    setSelectedResearchIndex(null);
+    try {
+      const params = new URLSearchParams();
+      params.set("query", researchQuery.trim());
+      if (researchLimit) params.set("limit", String(researchLimit));
+      const resp = await fetch(`/api/clado/search?${params.toString()}`, { method: "GET" });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        setResearchError(err?.error || `Search failed (${resp.status})`);
+        setResearchResults([]);
+        return;
+      }
+      const data = await resp.json();
+      setResearchResults(Array.isArray(data?.results) ? data.results : []);
+    } catch (e) {
+      setResearchError("Unexpected error performing search");
+      setResearchResults([]);
+    } finally {
+      setResearchLoading(false);
+    }
+  };
+
+  // Simple, dynamic theming by frequent phrases
+  function computeThemes(entries: FeedbackEntry[]): Array<{ key: string; title: string; count: number; urgency: 'High'|'Medium'|'Low'; entries: FeedbackEntry[]; priority: number; confidence: number; segments: string[] }> {
+    const stop = new Set(['the','a','an','and','or','but','if','in','on','to','of','for','with','is','it','this','that','there','was','were','are','be','add','please','section','page','bar','area','like','would','want','see','make','have']);
+    const counts: Record<string, number> = {};
+    const cleaned: Array<{entry: FeedbackEntry; tokens: string[]; bigrams: string[]}> = entries.map(entry => {
+      const text = `${entry.feedback} ${entry.startup_name || ''}`.toLowerCase().replace(/[^a-z0-9\s]/g,' ');
+      const tokens = text.split(/\s+/).filter(t => t && !stop.has(t));
+      const bigrams: string[] = [];
+      for (let i=0;i<tokens.length-1;i++) {
+        const bg = `${tokens[i]} ${tokens[i+1]}`;
+        bigrams.push(bg);
+        counts[bg] = (counts[bg]||0)+1;
+      }
+      return { entry, tokens, bigrams };
+    });
+    // Keep phrases that occur more than once; fallback to single tokens
+    const phrases = Object.entries(counts).filter(([,c]) => c>1).sort((a,b)=>b[1]-a[1]).slice(0,20).map(([p])=>p);
+    const themeMap: Record<string, FeedbackEntry[]> = {};
+    cleaned.forEach(({entry, bigrams, tokens}) => {
+      let matched = phrases.find(p => bigrams.includes(p));
+      if (!matched) {
+        // fallback: pick most frequent non-stopword token present in phrase set
+        matched = tokens.find(t => phrases.some(p => p.includes(t)) ) || tokens[0] || 'misc';
+      }
+      const key = matched;
+      if (!themeMap[key]) themeMap[key] = [];
+      themeMap[key].push(entry);
+    });
+    const out = Object.entries(themeMap).map(([key, list]) => {
+      const count = list.length;
+      const urgency: 'High'|'Medium'|'Low' = count >= 15 ? 'High' : count >= 7 ? 'Medium' : 'Low';
+      const title = key.split(' ').map(s => s.charAt(0).toUpperCase()+s.slice(1)).join(' ');
+      const segments = list.map(e => (e.startup_name || 'General').toLowerCase()).reduce((acc: Record<string, number>, s) => {
+        acc[s] = (acc[s]||0)+1; return acc;
+      }, {});
+      const topSegments = Object.entries(segments).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([s])=>s);
+      const priority = Math.min(100, 40 + count*4); // simple heuristic
+      const confidence = Math.min(99, 60 + count*3);
+      return { key, title, count, urgency, entries: list, priority, confidence, segments: topSegments };
+    }).sort((a,b)=> b.count - a.count);
+    return out;
+  }
+
+  // Recompute themes whenever entries change
+  useEffect(() => {
+    const visible = feedbackEntries.filter(e => !hiddenEntries.has(e.id));
+    const t = computeThemes(visible);
+    setThemes(t);
+    if (!selectedThemeKey && t[0]) setSelectedThemeKey(t[0].key);
+  }, [feedbackEntries, hiddenEntries]);
+
+  // Approve & Ship action (simulated)
+  const approveTheme = (key: string) => {
+    setApprovalsSent(prev => {
+      const next = prev + 1;
+      if (typeof window !== 'undefined') localStorage.setItem('iter8_approvals_sent', String(next));
+      return next;
+    });
+    setJustApproved(true);
+    setTimeout(()=> setJustApproved(false), 2000);
   };
 
   if (!user) {
@@ -175,226 +309,358 @@ const CompanyDashboard: React.FC = () => {
     );
   }
 
+  const visibleEntries = feedbackEntries.filter(entry => !hiddenEntries.has(entry.id));
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (visibleEntries.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const next = focusedIndex < visibleEntries.length - 1 ? focusedIndex + 1 : 0;
+      setFocusedIndex(next);
+      setSelectedEntry(visibleEntries[next]);
+      generateAISummary(visibleEntries[next].feedback);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const prev = focusedIndex > 0 ? focusedIndex - 1 : visibleEntries.length - 1;
+      setFocusedIndex(prev);
+      setSelectedEntry(visibleEntries[prev]);
+      generateAISummary(visibleEntries[prev].feedback);
+    }
+  };
+
   return (
-    <div className="flex min-h-screen w-full bg-background text-foreground">
+    <div className="flex min-h-screen w-full bg-white text-foreground">
+      <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:bg-black focus:text-white focus:px-3 focus:py-2 focus:rounded">Skip to main content</a>
       {/* Left: Feedback Entries Menu */}
-      <aside className="w-1/3 min-w-[320px] max-w-md flex flex-col border-r border-black/10 dark:border-white/10 bg-black h-screen">
+      <aside className={`${isSidebarOpen ? 'w-1/3 min-w-[320px] max-w-md' : 'w-0'} overflow-hidden transition-[width] duration-200 flex flex-col border-r border-brand-200 bg-white h-screen`} aria-expanded={isSidebarOpen}>
         {/* Logo at top */}
-        <div className="p-6 flex-shrink-0">
-          <Logo />
-        </div>
-        
-        {/* Feedback Entries List */}
-        <div className="flex-1 flex flex-col min-h-0">
-          <div className="p-4 flex-shrink-0">
-            <h2 className="text-gray-300 font-mono text-lg">Tickets</h2>
+        {isSidebarOpen && (
+          <div className="p-4 flex-shrink-0 flex items-center justify-between">
+            <Logo />
+            <button
+              onClick={() => setIsSidebarOpen(false)}
+              aria-label="Collapse sidebar"
+              className="p-2 rounded border border-brand-300 hover:bg-brand-50"
+            >
+              ⟨
+            </button>
           </div>
-          
-          {loading ? (
-            <div className="text-gray-400 font-mono text-center py-8 flex-shrink-0">Loading feedback...</div>
-          ) : feedbackEntries.length === 0 ? (
-            <div className="text-gray-400 font-mono text-center py-8 flex-shrink-0">No feedback entries found</div>
-          ) : (
-            <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
-              <div className="space-y-2 p-4">
-                {feedbackEntries
-                  .filter(entry => !hiddenEntries.has(entry.id))
-                  .map((entry) => (
-                  <div
-                    key={entry.id}
-                    onClick={() => handleEntryClick(entry)}
-                    className={`p-4 rounded border cursor-pointer transition-colors relative ${
-                      selectedEntry?.id === entry.id
-                        ? 'bg-gray-300 border-gray-500 text-black'
-                        : 'bg-black border-gray-700 hover:bg-gray-200 hover:text-black'
-                    }`}
-                    style={{
-                      boxShadow: selectedEntry?.id === entry.id 
-                        ? 'none'
-                        : '0 0 4px rgba(192, 192, 192, 0.4), 0 0 8px rgba(192, 192, 192, 0.2)',
-                      filter: selectedEntry?.id === entry.id 
-                        ? 'none'
-                        : 'drop-shadow(0 0 1px rgba(192, 192, 192, 0.3))'
-                    }}
-                  >
-                    {/* Action Buttons */}
-                    <div className="absolute top-2 right-2 flex gap-1">
-                      <button
-                        onClick={(e) => handleCompleteEntry(entry.id, e)}
-                        className="p-1 rounded bg-gray-600 hover:bg-gray-500 transition-colors border border-gray-500"
-                        title="Mark as complete"
-                      >
-                        <svg className="w-3 h-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={(e) => handleHideEntry(entry.id, e)}
-                        className="p-1 rounded bg-gray-700 hover:bg-gray-600 transition-colors border border-gray-600"
-                        title="Remove entry"
-                      >
-                        <svg className="w-3 h-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 12H6" />
-                        </svg>
-                      </button>
-                    </div>
-                    
-                    <div className="flex justify-between items-start mb-1 pr-12">
-                      <div className="text-sm text-gray-300 font-mono font-medium">
-                        {entry.startup_name}
-                      </div>
-                      <span className="text-xs text-gray-500 font-mono">
-                        {formatDate(entry.created_at)}
-                      </span>
-                    </div>
-                    <div className="mb-2">
-                      <span className={`text-xs font-mono px-2 py-1 rounded text-[10px] ${getFeedbackTypeColor(entry.feedback_type)}`}>
-                        {entry.feedback_type.toUpperCase()}
-                      </span>
-                    </div>
-                    <div className="text-xs text-gray-400 font-mono line-clamp-2">
-                      {entry.feedback.substring(0, 100)}...
-                    </div>
-                  </div>
-                ))}
-              </div>
+        )}
+        
+        {/* Tabs + Content */}
+        <div className="flex-1 flex flex-col min-h-0">
+          {/* Tabs */}
+          <div className="px-4 pt-2 flex-shrink-0">
+            <div className={`inline-flex rounded-md border border-brand-200 overflow-hidden ${isSidebarOpen ? '' : 'hidden'}` }>
+              <button
+                className={`px-3 py-2 text-xs font-sans ${activeTab === 'tickets' ? 'bg-brand-100 text-foreground' : 'bg-white text-foreground/70 hover:bg-brand-50'}`}
+                onClick={() => setActiveTab('tickets')}
+              >
+                Tickets
+              </button>
+              <button
+                className={`px-3 py-2 text-xs font-sans border-l border-brand-200 ${activeTab === 'research' ? 'bg-brand-100 text-foreground' : 'bg-white text-foreground/70 hover:bg-brand-50'}`}
+                onClick={() => setActiveTab('research')}
+              >
+                Research
+              </button>
             </div>
+          </div>
+
+          {activeTab === 'tickets' ? (
+            <>
+              <div className={`p-4 flex-shrink-0 ${isSidebarOpen ? '' : 'hidden'}` }>
+                <h2 className="text-foreground font-sans text-lg">Tickets</h2>
+              </div>
+              {isSidebarOpen && (
+                <>
+                  {loading ? (
+                    <div className="text-foreground/70 font-sans text-center py-8 flex-shrink-0">Loading feedback...</div>
+                  ) : feedbackEntries.length === 0 ? (
+                    <div className="text-foreground/70 font-sans text-center py-8 flex-shrink-0">No feedback entries found</div>
+                  ) : (
+                    <div className="flex-1 overflow-y-auto" tabIndex={0} onKeyDown={handleKeyDown} aria-label="Tickets list">
+                      <div className="space-y-2 p-4">
+                        {visibleEntries
+                          .map((entry) => (
+                          <div
+                            key={entry.id}
+                            onClick={() => handleEntryClick(entry)}
+                            className={`p-4 rounded border cursor-pointer transition-colors relative ${
+                              selectedEntry?.id === entry.id
+                                ? 'bg-brand-100 border-brand-300 text-foreground'
+                                : 'bg-white border-brand-200 hover:bg-brand-50'
+                            }`}
+                            role="button"
+                            aria-pressed={selectedEntry?.id === entry.id}
+                            style={{}}
+                          >
+                            {/* Action Buttons */}
+                            <div className="absolute top-2 right-2 flex gap-1">
+                              <button
+                                onClick={(e) => handleCompleteEntry(entry.id, e)}
+                                className="p-1 rounded bg-foreground/10 hover:bg-foreground/20 transition-colors border border-brand-300"
+                                title="Mark as complete"
+                              >
+                                <svg className="w-3 h-3 text-foreground/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={(e) => handleHideEntry(entry.id, e)}
+                                className="p-1 rounded bg-foreground/10 hover:bg-foreground/20 transition-colors border border-brand-300"
+                                title="Remove entry"
+                              >
+                                <svg className="w-3 h-3 text-foreground/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 12H6" />
+                                </svg>
+                              </button>
+                            </div>
+                            
+                            <div className="flex justify-between items-start mb-1 pr-12">
+                              <div className="text-sm text-foreground font-mono font-medium">
+                                {entry.startup_name}
+                              </div>
+                              <span className="text-xs text-foreground/60 font-mono">
+                                {formatDate(entry.created_at)}
+                              </span>
+                            </div>
+                            <div className="mb-2">
+                              <span className={`text-xs font-mono px-2 py-1 rounded text-[10px] ${getFeedbackTypeColor(entry.feedback_type)}`}>
+                                {entry.feedback_type.toUpperCase()}
+                              </span>
+                            </div>
+                            <div className="text-xs text-foreground/70 font-mono line-clamp-2">
+                              {entry.feedback.substring(0, 100)}...
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <div className={`p-4 flex-shrink-0 ${isSidebarOpen ? '' : 'hidden'}` }>
+                <h2 className="text-foreground font-sans text-lg">Research</h2>
+              </div>
+              <div className={`p-4 pt-0 flex-shrink-0 ${isSidebarOpen ? '' : 'hidden'}` }>
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={researchQuery}
+                    onChange={(e) => setResearchQuery(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') performResearchSearch(); }}
+                    placeholder="e.g. founders in fintech"
+                    className="w-full px-3 py-2 bg-white border border-brand-300 rounded text-sm text-foreground font-sans placeholder-foreground/40 focus:outline-none focus:ring-2 focus:ring-brand-400"
+                  />
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-foreground/70 font-sans">Limit</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={researchLimit}
+                      onChange={(e) => setResearchLimit(Math.max(1, Math.min(100, Number(e.target.value) || 10)))}
+                      className="w-20 px-2 py-1 bg-white border border-brand-300 rounded text-xs text-foreground font-sans focus:outline-none focus:ring-2 focus:ring-brand-400"
+                    />
+                    <button
+                      onClick={performResearchSearch}
+                      className="ml-auto px-3 py-1.5 text-xs rounded bg-brand-600 text-white font-sans border border-brand-500 hover:opacity-90"
+                      disabled={researchLoading}
+                    >
+                      {researchLoading ? 'Searching...' : 'Search'}
+                    </button>
+                  </div>
+                  {researchError ? (
+                    <div className="text-xs text-red-500 font-sans">{researchError}</div>
+                  ) : null}
+                </div>
+              </div>
+              {/* Simple selected preview on the left (optional) */}
+              <div className={`flex-1 overflow-y-auto ${isSidebarOpen ? '' : 'hidden'}` }>
+                {researchResults.length === 0 && !researchLoading ? (
+                  <div className="text-foreground/70 font-sans text-center py-8 flex-shrink-0">No results yet</div>
+                ) : (
+                  <div className="space-y-2 p-4">
+                    {researchResults.map((item, idx) => {
+                      const p = item.profile || {};
+                      return (
+                        <div
+                          key={`${p.id || idx}`}
+                          onClick={() => setSelectedResearchIndex(idx)}
+                          className={`p-4 rounded border cursor-pointer transition ${selectedResearchIndex === idx ? 'bg-brand-100 border-brand-300 text-foreground shadow-sm' : 'bg-white border-brand-200 hover:bg-brand-50 hover:shadow-sm'}`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 rounded-full bg-brand-600/10 text-brand-600 flex items-center justify-center text-xs font-semibold">
+                              {(p.name || 'U').charAt(0).toUpperCase()}
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex justify-between items-start">
+                                <div className="text-sm font-sans font-medium">{p.name || 'Unknown'}</div>
+                                {p.location ? (
+                                  <span className="text-xs text-foreground/60 font-sans">{p.location}</span>
+                                ) : null}
+                              </div>
+                              {p.headline ? (
+                                <div className="text-xs text-foreground/70 font-sans line-clamp-2 mt-0.5">{p.headline}</div>
+                              ) : null}
+                              <div className="mt-2 flex flex-wrap gap-1.5">
+                                {item.experience && item.experience[0]?.company_name ? (
+                                  <span className="text-[10px] font-sans text-foreground/70 border border-brand-300 px-2 py-0.5 rounded">{item.experience[0]?.company_name}</span>
+                                ) : null}
+                                {typeof p.followers_count === 'number' ? (
+                                  <span className="text-[10px] font-sans text-foreground/70 border border-brand-300 px-2 py-0.5 rounded">{p.followers_count} followers</span>
+                                ) : null}
+                                {typeof p.connections_count === 'number' ? (
+                                  <span className="text-[10px] font-sans text-foreground/70 border border-brand-300 px-2 py-0.5 rounded">{p.connections_count} connections</span>
+                                ) : null}
+                                {p.linkedin_url ? (
+                                  <a href={p.linkedin_url} target="_blank" rel="noreferrer" className="text-[10px] font-sans text-brand-600 border border-brand-300 px-2 py-0.5 rounded hover:underline">LinkedIn</a>
+                                ) : null}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </div>
         
         {/* Profile dropdown at bottom */}
-        <div className="p-4 border-t border-gray-800 flex-shrink-0">
+        <div className="p-4 border-t border-brand-200 flex-shrink-0">
           <ProfileDropdown />
         </div>
       </aside>
       
-      {/* Right: Entry Details and AI Summary */}
-      <main className="flex-1 flex items-center justify-center relative bg-black text-white">
+      {/* Right: Content Area */}
+      <main id="main" className="flex-1 relative bg-white text-foreground">
         {/* Profile dropdown at top right */}
+        {!isSidebarOpen && (
+          <div className="absolute top-6 left-6 z-10">
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              aria-label="Expand sidebar"
+              className="p-2 rounded border border-brand-300 bg-white hover:bg-brand-50"
+            >
+              ⟩
+            </button>
+          </div>
+        )}
         <div className="absolute top-6 right-6 z-10">
           <ProfileDropdown />
         </div>
-        
-        <div className={`flex gap-16 p-8 w-full max-w-6xl ${maximizedBox ? 'justify-center' : ''}`}>
-          {/* Selected Entry Details */}
-          <div className={`bg-black rounded-lg border border-gray-400 p-6 text-white relative ${maximizedBox === 'entry' ? 'w-full max-w-2xl aspect-square' : maximizedBox === 'summary' ? 'hidden' : 'w-1/2 aspect-square'}`} style={{
-            boxShadow: '0 0 8px rgba(192, 192, 192, 0.8), 0 0 16px rgba(192, 192, 192, 0.4)',
-            filter: 'drop-shadow(0 0 2px rgba(192, 192, 192, 0.6))'
-          }}>
-            {/* Maximize/Minimize Button */}
-            <button
-              onClick={() => setMaximizedBox(maximizedBox === 'entry' ? null : 'entry')}
-              className="absolute top-4 right-4 p-1.5 rounded-md bg-gray-800 hover:bg-gray-700 transition-colors"
-              title={maximizedBox === 'entry' ? 'Minimize' : 'Maximize'}
-            >
-              {maximizedBox === 'entry' ? (
-                <svg className="w-3 h-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 3v3a2 2 0 01-2 2H3m18 0h-3a2 2 0 01-2-2V3m0 18v-3a2 2 0 012-2h3M3 16h3a2 2 0 012 2v3" />
-                </svg>
-              ) : (
-                <svg className="w-3 h-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                </svg>
-              )}
-            </button>
-            
-            <h2 className="text-gray-200 font-mono text-xl font-medium mb-6">Entry Details</h2>
-            
-            {selectedEntry ? (
-              <div className="h-full flex flex-col">
-                <div className="space-y-6 flex-1">
-                                  <div className="space-y-2">
-                  <div className="text-sm text-gray-200 font-mono font-medium">
-                    <span className="text-xs text-gray-200 font-mono uppercase tracking-wider">General: </span>
-                    <span className="text-xs text-gray-400 font-mono tracking-wide">
-                      {formatDate(selectedEntry.created_at)}
-                    </span>
-                  </div>
-                </div>
-                  
-                  <div className="space-y-2">
-                    <div className="text-sm text-gray-200 font-mono font-medium">
-                      <span className="text-xs text-gray-200 font-mono uppercase tracking-wider">Startup: </span>
-                      <span className="text-sm text-gray-400 font-mono font-medium">
-                        {selectedEntry.startup_name}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="space-y-2 mt-auto">
-                  <label className="text-xs text-gray-400 font-mono uppercase tracking-wider">Feedback</label>
-                  <div className="text-xs text-foreground font-mono leading-relaxed p-4 bg-black rounded-lg border border-gray-400 h-32 overflow-y-auto shadow-sm">
-                    {selectedEntry.feedback}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-gray-400 font-mono text-center py-12 text-sm">
-                Select a feedback entry to view details
-              </div>
-            )}
+
+        {/* AI-first layout */}
+        <div className="w-full h-full p-6 space-y-6">
+          {/* Proof-of-impact metrics */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="bg-brand-50 border border-brand-200 rounded p-3 text-center">
+              <div className="text-xs text-foreground/70">Tickets processed → Insights distilled</div>
+              <div className="text-xl font-semibold">{feedbackEntries.length} → {Math.min(themes.length, 3)}</div>
+            </div>
+            <div className="bg-brand-50 border border-brand-200 rounded p-3 text-center">
+              <div className="text-xs text-foreground/70">Estimated time saved</div>
+              <div className="text-xl font-semibold">{Math.max(0, Math.round((feedbackEntries.length/20)*14))} days</div>
+            </div>
+            <div className="bg-brand-50 border border-brand-200 rounded p-3 text-center">
+              <div className="text-xs text-foreground/70">Customer reach (mentions)</div>
+              <div className="text-xl font-semibold">{themes.slice(0,3).reduce((s,t)=>s+t.count,0)}</div>
+            </div>
+            <div className="bg-brand-50 border border-brand-200 rounded p-3 text-center">
+              <div className="text-xs text-foreground/70">Approvals sent</div>
+              <div className="text-xl font-semibold">{approvalsSent}</div>
+            </div>
           </div>
 
-          {/* AI Summary */}
-          <div className={`bg-black rounded-lg border border-gray-400 p-6 text-white relative ${maximizedBox === 'summary' ? 'w-full max-w-2xl aspect-square' : maximizedBox === 'entry' ? 'hidden' : 'w-1/2 aspect-square'}`} style={{
-            boxShadow: '0 0 8px rgba(192, 192, 192, 0.8), 0 0 16px rgba(192, 192, 192, 0.4)',
-            filter: 'drop-shadow(0 0 2px rgba(192, 192, 192, 0.6))'
-          }}>
-            {/* Maximize/Minimize Button */}
-            <button
-              onClick={() => setMaximizedBox(maximizedBox === 'summary' ? null : 'summary')}
-              className="absolute top-4 right-4 p-1.5 rounded-md bg-gray-800 hover:bg-gray-700 transition-colors"
-              title={maximizedBox === 'summary' ? 'Minimize' : 'Maximize'}
-            >
-              {maximizedBox === 'summary' ? (
-                <svg className="w-3 h-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 3v3a2 2 0 01-2 2H3m18 0h-3a2 2 0 01-2-2V3m0 18v-3a2 2 0 012-2h3M3 16h3a2 2 0 012 2v3" />
-                </svg>
-              ) : (
-                <svg className="w-3 h-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                </svg>
-              )}
-            </button>
-            
-            <h2 className="text-gray-200 font-mono text-xl font-medium mb-6">AI Summary</h2>
-            
-            {selectedEntry ? (
-              <div className="h-full flex flex-col">
-                <div className="flex-1"></div>
-                              <div className="text-xs text-foreground font-mono leading-relaxed p-4 bg-black rounded-lg border border-gray-400 h-32 overflow-y-auto shadow-sm">
-                {summaryLoading ? (
-                  <div className="flex items-center gap-3">
-                    <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-                    <span className="text-gray-400">Generating summary...</span>
-                  </div>
-                ) : aiSummary ? (
-                  <div className="space-y-2">
-                    {aiSummary.split('\n').map((line, index) => (
-                      <div key={index} className="flex items-start gap-2">
-                        {line.trim().startsWith('•') || line.trim().startsWith('-') ? (
-                          <>
-                            <span className="text-gray-400 mt-0.5">•</span>
-                            <span className="flex-1">{line.trim().substring(1).trim()}</span>
-                          </>
-                        ) : (
-                          <span className="flex-1">{line}</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  "Click on an entry to generate AI summary"
-                )}
-              </div>
-              </div>
+          {/* Insights */}
+          <section>
+            <h2 className="text-xl md:text-2xl font-semibold tracking-tight mb-1 text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-brand-400">AI Prioritized Insights</h2>
+            <p className="text-sm text-foreground/60 mb-3">What to build next — ranked by customer signal and confidence</p>
+            {themes.length === 0 ? (
+              <div className="text-foreground/70 text-sm">Generating insights…</div>
             ) : (
-              <div className="text-gray-400 font-mono text-center py-12 text-sm">
-                Select a feedback entry to generate AI summary
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {themes.slice(0,3).map(t => (
+                  <button key={t.key} onClick={()=> setSelectedThemeKey(t.key)}
+                    className={`text-left p-5 rounded-xl border transition relative ${selectedThemeKey===t.key?'border-brand-300 bg-brand-100 shadow-sm':'border-brand-200 bg-white hover:bg-brand-50 hover:shadow-sm'}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-base md:text-lg font-semibold leading-tight truncate">{t.title}</div>
+                        <div className="text-xs text-foreground/70 mt-1">{t.count} mentions • confidence {t.confidence}%</div>
+                      </div>
+                      <div className="shrink-0">
+                        <div className={`text-[10px] uppercase tracking-wide px-2 py-1 rounded-full ${t.priority>80?'bg-red-50 text-red-600':t.priority>65?'bg-yellow-50 text-yellow-700':'bg-foreground/5 text-foreground/70'}`}>Priority {t.priority}</div>
+                      </div>
+                    </div>
+                    {t.segments.length>0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {t.segments.map(s => (
+                          <span key={s} className="text-[10px] px-2 py-0.5 rounded-full border border-brand-300 text-foreground/70">{s}</span>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-xs text-foreground/60 mt-2 leading-relaxed">Priority driven by {t.count} mentions across {t.segments.length || 1} segment{t.segments.length===1?'':'s'}; confidence {t.confidence}%.</p>
+                    {t.priority>80 && <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-red-500 animate-ping" />}
+                  </button>
+                ))}
               </div>
             )}
-          </div>
+          </section>
+
+          {/* Evidence and Approve */}
+          <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2">
+              <h3 className="text-sm font-semibold mb-2">Supporting Evidence</h3>
+              <div className="space-y-2">
+                {(() => {
+                  const sel = themes.find(t=>t.key===selectedThemeKey);
+                  if (!sel) return null;
+                  // Cluster into up to 3 representative quotes
+                  const quotes = sel.entries.slice(0,3).map(e => ({
+                    id: e.id,
+                    text: e.feedback.length>160? e.feedback.slice(0,157)+'…' : e.feedback,
+                    meta: `${formatDate(e.created_at)} • ${e.startup_name}`
+                  }));
+                  return (
+                    <>
+                      <div className="text-xs text-foreground/70 mb-1">{sel.count} mentions • representative quotes</div>
+                      {quotes.map(q => (
+                        <div key={q.id} className="p-3 rounded border border-brand-200 bg-brand-50">
+                          <div className="text-xs text-foreground/60">{q.meta}</div>
+                          <blockquote className="text-sm mt-1 italic border-l-2 border-brand-300 pl-3">“{q.text}”</blockquote>
+                        </div>
+                      ))}
+                    </>
+                  );
+                })()}
+                {themes.length>0 && !themes.find(t=>t.key===selectedThemeKey) && (
+                  <div className="text-foreground/70 text-sm">Select an insight to view evidence.</div>
+                )}
+              </div>
+            </div>
+            <div className="lg:col-span-1">
+              <h3 className="text-sm font-semibold mb-2">Approve & Ship</h3>
+              <button
+                disabled={!selectedThemeKey}
+                onClick={()=> approveTheme(selectedThemeKey!)}
+                className="w-full p-3 rounded bg-brand-600 text-white disabled:opacity-50"
+              >
+                Approve top insight
+              </button>
+              {justApproved && (
+                <div className="mt-3 p-3 rounded border border-brand-300 bg-brand-100 text-sm animate-pulse">
+                  ✅ Sent to CLI • {themes.find(t=>t.key===selectedThemeKey)?.count || 0} customers impacted • time saved +{Math.max(1, Math.round((feedbackEntries.length/40)*10))} days
+                </div>
+              )}
+            </div>
+          </section>
         </div>
       </main>
     </div>

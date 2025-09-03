@@ -59,27 +59,27 @@ const SessionDataViewer: React.FC<SessionDataViewerProps> = ({
   const actionTypes = [...new Set(sessionData.userActions.map(action => action.type))];
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-background border border-black/10 dark:border-white/10 rounded-lg w-full max-w-4xl h-[80vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white border border-brand-200 rounded-lg w-full max-w-4xl h-[80vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-700">
-          <h2 className="text-gray-200 font-mono text-lg">Session Data Viewer</h2>
+        <div className="flex items-center justify-between p-4 border-b border-brand-200">
+          <h2 className="text-foreground font-sans text-lg">Session Data Viewer</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-200 transition-colors"
+            className="text-foreground/60 hover:text-foreground transition-colors"
           >
             ✕
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-700">
+        <div className="flex border-b border-brand-200">
           <button
             onClick={() => setActiveTab('actions')}
             className={`px-4 py-2 text-sm font-mono transition-colors ${
               activeTab === 'actions' 
-                ? 'text-gray-200 border-b-2 border-blue-500' 
-                : 'text-gray-400 hover:text-gray-300'
+                ? 'text-foreground border-b-2 border-brand-600' 
+                : 'text-foreground/70 hover:text-foreground'
             }`}
           >
             User Actions ({sessionData.userActions.length})
@@ -89,8 +89,8 @@ const SessionDataViewer: React.FC<SessionDataViewerProps> = ({
               onClick={() => setActiveTab('recording')}
               className={`px-4 py-2 text-sm font-mono transition-colors ${
                 activeTab === 'recording' 
-                  ? 'text-gray-200 border-b-2 border-blue-500' 
-                  : 'text-gray-400 hover:text-gray-300'
+                  ? 'text-foreground border-b-2 border-brand-600' 
+                  : 'text-foreground/70 hover:text-foreground'
               }`}
             >
               Screen Recording
@@ -100,8 +100,8 @@ const SessionDataViewer: React.FC<SessionDataViewerProps> = ({
             onClick={() => setActiveTab('stats')}
             className={`px-4 py-2 text-sm font-mono transition-colors ${
               activeTab === 'stats' 
-                ? 'text-gray-200 border-b-2 border-blue-500' 
-                : 'text-gray-400 hover:text-gray-300'
+                ? 'text-foreground border-b-2 border-brand-600' 
+                : 'text-foreground/70 hover:text-foreground'
             }`}
           >
             Statistics
@@ -117,7 +117,7 @@ const SessionDataViewer: React.FC<SessionDataViewerProps> = ({
                 <select
                   value={filterType}
                   onChange={(e) => setFilterType(e.target.value)}
-                  className="bg-gray-800 border border-gray-600 text-gray-200 text-sm rounded px-3 py-1"
+                  className="bg-white border border-brand-300 text-foreground text-sm rounded px-3 py-1"
                 >
                   <option value="all">All Actions</option>
                   {actionTypes.map(type => (
@@ -131,43 +131,43 @@ const SessionDataViewer: React.FC<SessionDataViewerProps> = ({
                 {filteredActions.map((action) => (
                   <div
                     key={action.id}
-                    className="bg-gray-800 border border-gray-700 rounded p-3 text-sm"
+                    className="bg-brand-50 border border-brand-200 rounded p-3 text-sm"
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <span className={`px-2 py-1 rounded text-xs text-white ${getActionTypeColor(action.type)}`}>
                           {action.type}
                         </span>
-                        <span className="text-gray-400 font-mono">
+                        <span className="text-foreground/70 font-mono">
                           {formatTimestamp(action.timestamp)}
                         </span>
                       </div>
                       {action.coordinates && (
-                        <span className="text-gray-500 text-xs">
+                        <span className="text-foreground/50 text-xs">
                           ({action.coordinates.x}, {action.coordinates.y})
                         </span>
                       )}
                     </div>
                     
                     {action.url && (
-                      <div className="text-gray-400 text-xs mb-1">
+                      <div className="text-foreground/70 text-xs mb-1">
                         URL: {action.url}
                       </div>
                     )}
                     
                     {action.element && (
-                      <div className="text-gray-400 text-xs mb-1">
+                      <div className="text-foreground/70 text-xs mb-1">
                         Element: {action.element}
                       </div>
                     )}
                     
                     {action.data && Object.keys(action.data).length > 0 && (
-                      <div className="text-gray-400 text-xs">
+                      <div className="text-foreground/70 text-xs">
                         <details>
-                          <summary className="cursor-pointer hover:text-gray-300">
+                          <summary className="cursor-pointer hover:text-foreground">
                             Data
                           </summary>
-                          <pre className="mt-1 text-gray-500 overflow-x-auto">
+                          <pre className="mt-1 text-foreground/60 overflow-x-auto">
                             {JSON.stringify(action.data, null, 2)}
                           </pre>
                         </details>
@@ -182,26 +182,26 @@ const SessionDataViewer: React.FC<SessionDataViewerProps> = ({
           {activeTab === 'recording' && sessionData.screenRecording && (
             <div>
               <div className="mb-4">
-                <h3 className="text-gray-200 font-mono mb-2">Screen Recording</h3>
-                <div className="bg-gray-800 border border-gray-700 rounded p-4">
+                <h3 className="text-foreground font-mono mb-2">Screen Recording</h3>
+                <div className="bg-brand-50 border border-brand-200 rounded p-4">
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
-                      <span className="text-gray-400">Status:</span>
-                      <span className="ml-2 text-gray-200">{sessionData.screenRecording.status}</span>
+                      <span className="text-foreground/70">Status:</span>
+                      <span className="ml-2 text-foreground">{sessionData.screenRecording.status}</span>
                     </div>
                     <div>
-                      <span className="text-gray-400">Duration:</span>
-                      <span className="ml-2 text-gray-200">{formatDuration(sessionData.screenRecording.duration)}</span>
+                      <span className="text-foreground/70">Duration:</span>
+                      <span className="ml-2 text-foreground">{formatDuration(sessionData.screenRecording.duration)}</span>
                     </div>
                     <div>
-                      <span className="text-gray-400">Resolution:</span>
-                      <span className="ml-2 text-gray-200">
+                      <span className="text-foreground/70">Resolution:</span>
+                      <span className="ml-2 text-foreground">
                         {sessionData.screenRecording.metadata.resolution.width} x {sessionData.screenRecording.metadata.resolution.height}
                       </span>
                     </div>
                     <div>
-                      <span className="text-gray-400">Format:</span>
-                      <span className="ml-2 text-gray-200">{sessionData.screenRecording.metadata.format}</span>
+                      <span className="text-foreground/70">Format:</span>
+                      <span className="ml-2 text-foreground">{sessionData.screenRecording.metadata.format}</span>
                     </div>
                   </div>
                   
@@ -209,7 +209,7 @@ const SessionDataViewer: React.FC<SessionDataViewerProps> = ({
                     <div className="mt-4">
                       <video
                         controls
-                        className="w-full max-h-96 rounded border border-gray-600"
+                        className="w-full max-h-96 rounded border border-brand-300"
                         src={sessionData.screenRecording.recordingUrl}
                       >
                         Your browser does not support the video tag.
@@ -223,32 +223,32 @@ const SessionDataViewer: React.FC<SessionDataViewerProps> = ({
 
           {activeTab === 'stats' && (
             <div>
-              <h3 className="text-gray-200 font-mono mb-4">Session Statistics</h3>
+              <h3 className="text-foreground font-mono mb-4">Session Statistics</h3>
               
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-gray-800 border border-gray-700 rounded p-4 text-center">
+                <div className="bg-brand-50 border border-brand-200 rounded p-4 text-center">
                   <div className="text-2xl font-bold text-blue-400">{sessionData.userActions.length}</div>
-                  <div className="text-gray-400 text-sm">Total Actions</div>
+                  <div className="text-foreground/70 text-sm">Total Actions</div>
                 </div>
-                <div className="bg-gray-800 border border-gray-700 rounded p-4 text-center">
+                <div className="bg-brand-50 border border-brand-200 rounded p-4 text-center">
                   <div className="text-2xl font-bold text-green-400">{formatDuration(sessionData.duration)}</div>
-                  <div className="text-gray-400 text-sm">Session Duration</div>
+                  <div className="text-foreground/70 text-sm">Session Duration</div>
                 </div>
-                <div className="bg-gray-800 border border-gray-700 rounded p-4 text-center">
+                <div className="bg-brand-50 border border-brand-200 rounded p-4 text-center">
                   <div className="text-2xl font-bold text-yellow-400">{actionTypes.length}</div>
-                  <div className="text-gray-400 text-sm">Action Types</div>
+                  <div className="text-foreground/70 text-sm">Action Types</div>
                 </div>
-                <div className="bg-gray-800 border border-gray-700 rounded p-4 text-center">
+                <div className="bg-brand-50 border border-brand-200 rounded p-4 text-center">
                   <div className="text-2xl font-bold text-purple-400">
                     {sessionData.screenRecording ? 'Yes' : 'No'}
                   </div>
-                  <div className="text-gray-400 text-sm">Screen Recording</div>
+                  <div className="text-foreground/70 text-sm">Screen Recording</div>
                 </div>
               </div>
 
               {/* Action Type Breakdown */}
-              <div className="bg-gray-800 border border-gray-700 rounded p-4">
-                <h4 className="text-gray-200 font-mono mb-3">Action Type Breakdown</h4>
+              <div className="bg-brand-50 border border-brand-200 rounded p-4">
+                <h4 className="text-foreground font-mono mb-3">Action Type Breakdown</h4>
                 <div className="space-y-2">
                   {actionTypes.map(type => {
                     const count = sessionData.userActions.filter(action => action.type === type).length;
@@ -258,9 +258,9 @@ const SessionDataViewer: React.FC<SessionDataViewerProps> = ({
                       <div key={type} className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className={`w-3 h-3 rounded ${getActionTypeColor(type)}`}></span>
-                          <span className="text-gray-300 text-sm">{type}</span>
+                          <span className="text-foreground text-sm">{type}</span>
                         </div>
-                        <div className="text-gray-400 text-sm">
+                        <div className="text-foreground/70 text-sm">
                           {count} ({percentage}%)
                         </div>
                       </div>

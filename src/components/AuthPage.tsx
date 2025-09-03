@@ -75,7 +75,7 @@ const AuthPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
+    <div className="min-h-screen bg-gradient-to-b from-brand-50 to-brand-200 text-foreground flex items-center justify-center p-6">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
@@ -83,8 +83,8 @@ const AuthPage: React.FC = () => {
         </div>
 
         {/* Auth Form */}
-        <div className="bg-background p-8 rounded-lg border border-black/10 dark:border-white/10">
-          <h2 className="text-gray-300 font-mono text-xl mb-6 text-center">
+        <div className="bg-white/80 backdrop-blur-xl p-8 rounded-xl border border-brand-200 shadow-sm">
+          <h2 className="text-brand-600 font-sans text-xl mb-6 text-center">
             {isSignUp ? "Create Account" : "Sign In"}
           </h2>
 
@@ -96,7 +96,7 @@ const AuthPage: React.FC = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Email"
                 required
-                className="w-full p-3 bg-gray-800 border border-gray-600 rounded font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                className="w-full p-3 bg-white border border-brand-300 rounded font-sans text-foreground placeholder-brand-400/80 focus:outline-none focus:ring-2 focus:ring-brand-400"
               />
             </div>
 
@@ -107,21 +107,21 @@ const AuthPage: React.FC = () => {
                 onChange={(e) => setStartupName(e.target.value)}
                 placeholder="Startup name you're testing"
                 required
-                className="w-full p-3 bg-gray-800 border border-gray-600 rounded font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                className="w-full p-3 bg-white border border-brand-300 rounded font-sans text-foreground placeholder-brand-400/80 focus:outline-none focus:ring-2 focus:ring-brand-400"
               />
             </div>
 
             {/* User Type Selection */}
             <div>
-              <label className="block text-gray-400 font-mono text-sm mb-2">I am a:</label>
+              <label className="block text-foreground/70 font-sans text-sm mb-2">I am a:</label>
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={() => setUserType("customer")}
-                  className={`p-3 rounded border font-mono transition-colors ${
+                  className={`p-3 rounded border font-sans transition-colors ${
                     userType === "customer"
-                      ? 'bg-gray-700 border-gray-500 text-gray-200'
-                      : 'bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700 hover:text-gray-200'
+                      ? 'bg-brand-100 border-brand-300 text-foreground'
+                      : 'bg-white border-brand-300 text-foreground/70 hover:bg-brand-50'
                   }`}
                 >
                   Customer
@@ -129,10 +129,10 @@ const AuthPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setUserType("company")}
-                  className={`p-3 rounded border font-mono transition-colors ${
+                  className={`p-3 rounded border font-sans transition-colors ${
                     userType === "company"
-                      ? 'bg-gray-700 border-gray-500 text-gray-200'
-                      : 'bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700 hover:text-gray-200'
+                      ? 'bg-brand-100 border-brand-300 text-foreground'
+                      : 'bg-white border-brand-300 text-foreground/70 hover:bg-brand-50'
                   }`}
                 >
                   Company Member
@@ -147,12 +147,12 @@ const AuthPage: React.FC = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Password"
                 required
-                className="w-full p-3 bg-gray-800 border border-gray-600 rounded font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                className="w-full p-3 bg-white border border-brand-300 rounded font-sans text-foreground placeholder-brand-400/80 focus:outline-none focus:ring-2 focus:ring-brand-400"
               />
             </div>
 
             {message && (
-              <div className="text-sm font-mono text-center p-2 rounded bg-gray-800 border border-gray-600">
+              <div className="text-sm font-sans text-center p-2 rounded bg-brand-100 border border-brand-300 text-foreground">
                 {message}
               </div>
             )}
@@ -160,7 +160,7 @@ const AuthPage: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full p-3 bg-gray-700 text-gray-200 font-mono rounded hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full p-3 bg-primary text-white font-sans rounded hover:bg-brand-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Loading..." : (isSignUp ? "Sign Up" : "Sign In")}
             </button>
@@ -169,7 +169,7 @@ const AuthPage: React.FC = () => {
           <div className="mt-6 text-center">
             <button
               onClick={() => setIsSignUp(!isSignUp)}
-              className="text-gray-400 font-mono text-sm hover:text-gray-300 transition-colors"
+              className="text-foreground/70 font-sans text-sm hover:text-foreground transition-colors"
             >
               {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
             </button>
