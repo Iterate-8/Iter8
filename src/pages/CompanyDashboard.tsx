@@ -174,14 +174,92 @@ const CompanyDashboard: React.FC = () => {
     }
   };
 
-  const handleCompleteEntry = (entryId: string, e: React.MouseEvent) => {
+  const handleCompleteEntry = async (entry: FeedbackEntry, e: React.MouseEvent) => {
     e.stopPropagation();
-    
-    // Just hide from view (mark as completed) but keep in database
-    setHiddenEntries(prev => new Set([...prev, entryId]));
-    
+
+    try {
+      // Build an optimized, implementation-ready CLI prompt
+      const themeForEntry = themes.find(t => t.entries.some(e => e.id === entry.id));
+      // Ensure we have an AI summary for the specific ticket (compute if not current)
+      let summaryForEntry = '';
+      if (selectedEntry?.id === entry.id && aiSummary) {
+        summaryForEntry = aiSummary;
+      } else {
+        try {
+          summaryForEntry = await generateSummary(entry.feedback);
+        } catch {
+          summaryForEntry = '';
+        }
+      }
+
+      // Sanitize AI summary: keep only statements clearly entailed by the ticket; drop speculative lines
+      const sanitizeAiSummary = (ticket: string, summary: string): string => {
+        if (!summary) return '';
+        const ticketLower = ticket.toLowerCase();
+        const forbidden = [/^\s*(consider|maybe|could|optionally)\b/i, /search\b/i, /filter\b/i, /sort\b/i];
+        const lines = summary
+          .split(/\r?\n/)
+          .map(l => l.replace(/^[-•]\s*/, '').trim())
+          .filter(Boolean)
+          .filter(l => !forbidden.some(re => re.test(l)) || ticketLower.includes('search') || ticketLower.includes('filter') || ticketLower.includes('sort'))
+          .filter((l, i, arr) => arr.indexOf(l) === i);
+        // Keep at most 3 concise points
+        return lines.slice(0, 3).map(l => `- ${l}`).join('\n');
+      };
+      const cleanSummary = sanitizeAiSummary(entry.feedback, summaryForEntry);
+
+      const commitTitleSource = (entry.feedback || '').split(/\s+/).slice(0, 8).join(' ');
+      // Detect stack dynamically so the prompt doesn't assume technologies
+      let stackHints = '';
+      try {
+        const res = await fetch('/api/stack');
+        const info = await res.json();
+        const parts: string[] = [];
+        if (info.hasNext) parts.push(`Next.js ${info.nextVersion ?? ''}`.trim());
+        if (info.hasTypeScript) parts.push('TypeScript');
+        if (info.hasTailwind) parts.push(`Tailwind ${info.tailwindVersion ?? ''}`.trim());
+        if (info.hasSupabase) parts.push('Supabase');
+        stackHints = parts.length ? parts.join(', ') : '';
+      } catch {}
+      const prompt = [
+        `ROLE: Senior full‑stack engineer for a Next.js 15 (App Router) + TypeScript + Tailwind v4 app using Supabase.`,
+        `OBJECTIVE: Implement the exact customer request below with focused, minimal edits.`,
+        `\nTICKET:`,
+        `"${entry.feedback}"`,
+        themeForEntry ? `\nSIGNAL: ${themeForEntry.count} similar mentions; segments: ${themeForEntry.segments.join(', ') || 'general'}; confidence: ${themeForEntry.confidence}%` : '',
+        cleanSummary ? `\nAI_SUMMARY (entailed only):\n${cleanSummary}` : '',
+        stackHints ? `\nCONTEXT:\n- Stack (detected): ${stackHints}` : '',
+        `- Design: Figtree font, light theme; keep AA contrast and keyboard nav.`,
+        `\nREQUIREMENTS:`,
+        `- Implement only what the ticket specifies; avoid unrelated changes.`,
+        `- Use existing components/styles; prefer theme tokens and current patterns.`,
+        `- Keep edits small and readable; ensure type-safety and pass lints.`,
+        `- Do not fabricate data or features not in the ticket. If ticket asks to "make up" items, create empty placeholders or minimal stubs without invented content.`,
+        `\nOUTPUT:`,
+        `- Code edits that satisfy the ticket.`,
+        `- Commit message: chore(ui): ${entry.startup_name || 'startup'} — ${commitTitleSource}…`,
+        `- Brief PR description summarizing the change.`,
+        `\nACCEPTANCE:`,
+        `- The described behavior works as requested.`,
+        `- No TypeScript or lint errors; build succeeds.`,
+        `- Visual and a11y guidelines preserved.`
+      ].filter(Boolean).join('\n');
+
+      // Store ticket -> prompt mapping
+      if (user?.id) {
+        await supabase
+          .from('cli_prompts')
+          .upsert({ user_id: user.id, feedback_id: entry.id, prompt }, { onConflict: 'feedback_id' });
+      }
+    } catch (err) {
+      console.error('Failed to store CLI prompt for ticket:', err);
+    }
+
+    // Hide from view (mark as completed) but keep in database
+    setHiddenEntries(prev => new Set([...prev, entry.id]));
+
     // Clear selection if this was the selected entry
-    if (selectedEntry?.id === entryId) {
+    if (selectedEntry?.id === entry.id) {
       setSelectedEntry(null);
       setAiSummary("");
     }
@@ -238,44 +316,104 @@ const CompanyDashboard: React.FC = () => {
 
   // Simple, dynamic theming by frequent phrases
   function computeThemes(entries: FeedbackEntry[]): Array<{ key: string; title: string; count: number; urgency: 'High'|'Medium'|'Low'; entries: FeedbackEntry[]; priority: number; confidence: number; segments: string[] }> {
-    const stop = new Set(['the','a','an','and','or','but','if','in','on','to','of','for','with','is','it','this','that','there','was','were','are','be','add','please','section','page','bar','area','like','would','want','see','make','have']);
-    const counts: Record<string, number> = {};
-    const cleaned: Array<{entry: FeedbackEntry; tokens: string[]; bigrams: string[]}> = entries.map(entry => {
-      const text = `${entry.feedback} ${entry.startup_name || ''}`.toLowerCase().replace(/[^a-z0-9\s]/g,' ');
-      const tokens = text.split(/\s+/).filter(t => t && !stop.has(t));
-      const bigrams: string[] = [];
-      for (let i=0;i<tokens.length-1;i++) {
-        const bg = `${tokens[i]} ${tokens[i+1]}`;
-        bigrams.push(bg);
-        counts[bg] = (counts[bg]||0)+1;
+    const stop = new Set([
+      'the','a','an','and','or','but','if','in','on','to','of','for','with','is','it','this','that','there','was','were','are','be','been','being',
+      'add','please','section','page','bar','area','like','would','want','see','make','have','has','had','can','could','should','would','really','just','also','from','at','as','by','we','you','they','i','me','my','our','your','their'
+    ]);
+
+    const normalize = (text: string) => text
+      .toLowerCase()
+      .replace(/\b([a-z])'s\b/g, '$1') // possessives -> base
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const tokenize = (text: string) => normalize(text)
+      .split(' ')
+      .filter(t => t && !stop.has(t) && t.length >= 3 && !/^\d+$/.test(t));
+
+    const ngrams = (tokens: string[], n: number) => {
+      const list: string[] = [];
+      for (let i = 0; i <= tokens.length - n; i++) {
+        list.push(tokens.slice(i, i + n).join(' '));
       }
-      return { entry, tokens, bigrams };
+      return list;
+    };
+
+    // Build global bigram/trigram counts per entry presence
+    const phraseCounts: Record<string, number> = {};
+    const perEntryPhrases: Array<{ entry: FeedbackEntry; tokens: string[]; bigrams: Set<string>; trigrams: Set<string> }> = entries.map(entry => {
+      const tokens = tokenize(`${entry.feedback} ${entry.startup_name || ''}`);
+      const bgs = new Set(ngrams(tokens, 2));
+      const tgs = new Set(ngrams(tokens, 3));
+      // count unique presence per entry
+      bgs.forEach(p => { phraseCounts[p] = (phraseCounts[p] || 0) + 1; });
+      tgs.forEach(p => { phraseCounts[p] = (phraseCounts[p] || 0) + 1; });
+      return { entry, tokens, bigrams: bgs, trigrams: tgs };
     });
-    // Keep phrases that occur more than once; fallback to single tokens
-    const phrases = Object.entries(counts).filter(([,c]) => c>1).sort((a,b)=>b[1]-a[1]).slice(0,20).map(([p])=>p);
-    const themeMap: Record<string, FeedbackEntry[]> = {};
-    cleaned.forEach(({entry, bigrams, tokens}) => {
-      let matched = phrases.find(p => bigrams.includes(p));
-      if (!matched) {
-        // fallback: pick most frequent non-stopword token present in phrase set
-        matched = tokens.find(t => phrases.some(p => p.includes(t)) ) || tokens[0] || 'misc';
+
+    const frequentPhrases = Object.entries(phraseCounts)
+      .filter(([, c]) => c >= 2)
+      .sort((a, b) => b[1] - a[1])
+      .map(([p]) => p);
+
+    // Helper: Jaccard similarity
+    const jaccard = (a: string, b: string) => {
+      const A = new Set(a.split(' '));
+      const B = new Set(b.split(' '));
+      const inter = new Set([...A].filter(x => B.has(x))).size;
+      const uni = new Set([...A, ...B]).size;
+      return uni === 0 ? 0 : inter / uni;
+    };
+
+    // Canonicalize similar phrases (merge near-duplicates)
+    const canonical: Record<string, string> = {};
+    const ordered = frequentPhrases.slice(0);
+    for (let i = 0; i < ordered.length; i++) {
+      const a = ordered[i];
+      if (canonical[a]) continue;
+      canonical[a] = a;
+      for (let j = i + 1; j < ordered.length; j++) {
+        const b = ordered[j];
+        if (canonical[b]) continue;
+        if (jaccard(a, b) >= 0.8) {
+          canonical[b] = a;
+        }
       }
-      const key = matched;
+    }
+
+    // Assign each entry to best phrase, falling back sanely
+    const themeMap: Record<string, FeedbackEntry[]> = {};
+    perEntryPhrases.forEach(({ entry, tokens, bigrams, trigrams }) => {
+      // Prefer most frequent trigram/bigram present
+      const candidates = ordered.filter(p => (p.split(' ').length === 3 ? trigrams.has(p) : bigrams.has(p)));
+      let chosen = candidates[0];
+      if (!chosen) {
+        // fallback: choose most common long token that appears across entries
+        const unigramCounts: Record<string, number> = {};
+        entries.forEach(e => tokenize(e.feedback).forEach(t => { unigramCounts[t] = (unigramCounts[t] || 0) + 1; }));
+        const bestToken = tokens
+          .filter(t => (unigramCounts[t] || 0) >= 3)
+          .sort((a, b) => (unigramCounts[b] || 0) - (unigramCounts[a] || 0))[0];
+        chosen = bestToken ? bestToken : 'other';
+      }
+      const key = canonical[chosen] || chosen;
       if (!themeMap[key]) themeMap[key] = [];
       themeMap[key].push(entry);
     });
+
     const out = Object.entries(themeMap).map(([key, list]) => {
       const count = list.length;
-      const urgency: 'High'|'Medium'|'Low' = count >= 15 ? 'High' : count >= 7 ? 'Medium' : 'Low';
-      const title = key.split(' ').map(s => s.charAt(0).toUpperCase()+s.slice(1)).join(' ');
+      const urgency: 'High' | 'Medium' | 'Low' = count >= 15 ? 'High' : count >= 7 ? 'Medium' : 'Low';
+      const title = key.split(' ').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
       const segments = list.map(e => (e.startup_name || 'General').toLowerCase()).reduce((acc: Record<string, number>, s) => {
-        acc[s] = (acc[s]||0)+1; return acc;
+        acc[s] = (acc[s] || 0) + 1; return acc;
       }, {});
-      const topSegments = Object.entries(segments).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([s])=>s);
-      const priority = Math.min(100, 40 + count*4); // simple heuristic
-      const confidence = Math.min(99, 60 + count*3);
+      const topSegments = Object.entries(segments).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([s]) => s);
+      const priority = Math.min(100, 40 + count * 4);
+      const confidence = Math.min(99, 60 + Math.min(30, count * 3));
       return { key, title, count, urgency, entries: list, priority, confidence, segments: topSegments };
-    }).sort((a,b)=> b.count - a.count);
+    }).sort((a, b) => b.count - a.count);
     return out;
   }
 
@@ -329,10 +467,10 @@ const CompanyDashboard: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-screen w-full bg-white text-foreground">
+    <div className="flex min-h-screen w-full bg-background text-foreground">
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:bg-black focus:text-white focus:px-3 focus:py-2 focus:rounded">Skip to main content</a>
       {/* Left: Feedback Entries Menu */}
-      <aside className={`${isSidebarOpen ? 'w-1/3 min-w-[320px] max-w-md' : 'w-0'} overflow-hidden transition-[width] duration-200 flex flex-col border-r border-brand-200 bg-white h-screen`} aria-expanded={isSidebarOpen}>
+      <aside className={`${isSidebarOpen ? 'w-1/3 min-w-[320px] max-w-md' : 'w-0'} overflow-hidden transition-[width] duration-200 flex flex-col border-r border-brand-200 bg-background h-screen`} aria-expanded={isSidebarOpen}>
         {/* Logo at top */}
         {isSidebarOpen && (
           <div className="p-4 flex-shrink-0 flex items-center justify-between">
@@ -353,13 +491,13 @@ const CompanyDashboard: React.FC = () => {
           <div className="px-4 pt-2 flex-shrink-0">
             <div className={`inline-flex rounded-md border border-brand-200 overflow-hidden ${isSidebarOpen ? '' : 'hidden'}` }>
               <button
-                className={`px-3 py-2 text-xs font-sans ${activeTab === 'tickets' ? 'bg-brand-100 text-foreground' : 'bg-white text-foreground/70 hover:bg-brand-50'}`}
+                className={`px-3 py-2 text-xs font-sans ${activeTab === 'tickets' ? 'bg-brand-100 text-foreground' : 'bg-background text-foreground/70 hover:bg-brand-50'}`}
                 onClick={() => setActiveTab('tickets')}
               >
                 Tickets
               </button>
               <button
-                className={`px-3 py-2 text-xs font-sans border-l border-brand-200 ${activeTab === 'research' ? 'bg-brand-100 text-foreground' : 'bg-white text-foreground/70 hover:bg-brand-50'}`}
+                className={`px-3 py-2 text-xs font-sans border-l border-brand-200 ${activeTab === 'research' ? 'bg-brand-100 text-foreground' : 'bg-background text-foreground/70 hover:bg-brand-50'}`}
                 onClick={() => setActiveTab('research')}
               >
                 Research
@@ -389,7 +527,7 @@ const CompanyDashboard: React.FC = () => {
                             className={`p-4 rounded border cursor-pointer transition-colors relative ${
                               selectedEntry?.id === entry.id
                                 ? 'bg-brand-100 border-brand-300 text-foreground'
-                                : 'bg-white border-brand-200 hover:bg-brand-50'
+                                : 'bg-background border-brand-200 hover:bg-brand-50'
                             }`}
                             role="button"
                             aria-pressed={selectedEntry?.id === entry.id}
@@ -398,7 +536,7 @@ const CompanyDashboard: React.FC = () => {
                             {/* Action Buttons */}
                             <div className="absolute top-2 right-2 flex gap-1">
                               <button
-                                onClick={(e) => handleCompleteEntry(entry.id, e)}
+                                onClick={(e) => handleCompleteEntry(entry, e)}
                                 className="p-1 rounded bg-foreground/10 hover:bg-foreground/20 transition-colors border border-brand-300"
                                 title="Mark as complete"
                               >
@@ -454,7 +592,7 @@ const CompanyDashboard: React.FC = () => {
                     onChange={(e) => setResearchQuery(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') performResearchSearch(); }}
                     placeholder="e.g. founders in fintech"
-                    className="w-full px-3 py-2 bg-white border border-brand-300 rounded text-sm text-foreground font-sans placeholder-foreground/40 focus:outline-none focus:ring-2 focus:ring-brand-400"
+                    className="w-full px-3 py-2 bg-background border border-brand-300 rounded text-sm text-foreground font-sans placeholder-foreground/40 focus:outline-none focus:ring-2 focus:ring-brand-400"
                   />
                   <div className="flex items-center gap-2">
                     <label className="text-xs text-foreground/70 font-sans">Limit</label>
@@ -464,7 +602,7 @@ const CompanyDashboard: React.FC = () => {
                       max={100}
                       value={researchLimit}
                       onChange={(e) => setResearchLimit(Math.max(1, Math.min(100, Number(e.target.value) || 10)))}
-                      className="w-20 px-2 py-1 bg-white border border-brand-300 rounded text-xs text-foreground font-sans focus:outline-none focus:ring-2 focus:ring-brand-400"
+                      className="w-20 px-2 py-1 bg-background border border-brand-300 rounded text-xs text-foreground font-sans focus:outline-none focus:ring-2 focus:ring-brand-400"
                     />
                     <button
                       onClick={performResearchSearch}
@@ -491,7 +629,7 @@ const CompanyDashboard: React.FC = () => {
                         <div
                           key={`${p.id || idx}`}
                           onClick={() => setSelectedResearchIndex(idx)}
-                          className={`p-4 rounded border cursor-pointer transition ${selectedResearchIndex === idx ? 'bg-brand-100 border-brand-300 text-foreground shadow-sm' : 'bg-white border-brand-200 hover:bg-brand-50 hover:shadow-sm'}`}
+                          className={`p-4 rounded border cursor-pointer transition ${selectedResearchIndex === idx ? 'bg-brand-100 border-brand-300 text-foreground shadow-sm' : 'bg-background border-brand-200 hover:bg-brand-50 hover:shadow-sm'}`}
                         >
                           <div className="flex items-start gap-3">
                             <div className="w-8 h-8 rounded-full bg-brand-600/10 text-brand-600 flex items-center justify-center text-xs font-semibold">
@@ -540,14 +678,14 @@ const CompanyDashboard: React.FC = () => {
       </aside>
       
       {/* Right: Content Area */}
-      <main id="main" className="flex-1 relative bg-white text-foreground">
+      <main id="main" className="flex-1 relative bg-background text-foreground">
         {/* Profile dropdown at top right */}
         {!isSidebarOpen && (
           <div className="absolute top-6 left-6 z-10">
             <button
               onClick={() => setIsSidebarOpen(true)}
               aria-label="Expand sidebar"
-              className="p-2 rounded border border-brand-300 bg-white hover:bg-brand-50"
+              className="p-2 rounded border border-brand-300 bg-background hover:bg-brand-50"
             >
               ⟩
             </button>
@@ -589,7 +727,7 @@ const CompanyDashboard: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {themes.slice(0,3).map(t => (
                   <button key={t.key} onClick={()=> setSelectedThemeKey(t.key)}
-                    className={`text-left p-5 rounded-xl border transition relative ${selectedThemeKey===t.key?'border-brand-300 bg-brand-100 shadow-sm':'border-brand-200 bg-white hover:bg-brand-50 hover:shadow-sm'}`}>
+                    className={`text-left p-5 rounded-xl border transition relative ${selectedThemeKey===t.key?'border-brand-300 bg-brand-100 shadow-sm':'border-brand-200 bg-background hover:bg-brand-50 hover:shadow-sm'}`}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="text-base md:text-lg font-semibold leading-tight truncate">{t.title}</div>
@@ -643,6 +781,27 @@ const CompanyDashboard: React.FC = () => {
                 {themes.length>0 && !themes.find(t=>t.key===selectedThemeKey) && (
                   <div className="text-foreground/70 text-sm">Select an insight to view evidence.</div>
                 )}
+              </div>
+
+              {/* AI Summary for the currently selected ticket */}
+              <div className="mt-4">
+                <h3 className="text-sm font-semibold mb-2">AI Summary</h3>
+                <div className="text-sm leading-relaxed p-4 rounded border border-brand-300 bg-brand-50">
+                  {summaryLoading ? (
+                    <div className="flex items-center gap-3">
+                      <div className="w-4 h-4 border-2 border-brand-300 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-foreground/70">Generating summary…</span>
+                    </div>
+                  ) : selectedEntry ? (
+                    aiSummary ? (
+                      <div className="whitespace-pre-wrap">{aiSummary}</div>
+                    ) : (
+                      <div className="text-foreground/70">Click a ticket on the left to generate a summary.</div>
+                    )
+                  ) : (
+                    <div className="text-foreground/70">Select a ticket to generate AI summary.</div>
+                  )}
+                </div>
               </div>
             </div>
             <div className="lg:col-span-1">

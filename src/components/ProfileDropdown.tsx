@@ -38,6 +38,21 @@ const ProfileDropdown: React.FC = () => {
     setIsOpen(!isOpen);
   };
 
+  const toggleTheme = () => {
+    const root = document.documentElement;
+    const next = root.classList.toggle('dark');
+    try {
+      localStorage.setItem('iter8_theme', next ? 'dark' : 'light');
+    } catch {}
+  };
+
+  React.useEffect(() => {
+    try {
+      const saved = localStorage.getItem('iter8_theme');
+      if (saved === 'dark') document.documentElement.classList.add('dark');
+    } catch {}
+  }, []);
+
   if (!user) return null;
 
   return (
@@ -68,6 +83,15 @@ const ProfileDropdown: React.FC = () => {
             Feedback: <span className="text-foreground">{feedbackCount}</span>
           </div>
           
+          {/* Theme toggle */}
+          <button
+            onClick={toggleTheme}
+            className="text-foreground/70 font-sans text-sm hover:text-foreground transition-colors"
+            title="Toggle dark mode"
+          >
+            🌙
+          </button>
+
           {/* Sign Out Button */}
           <button
             onClick={handleSignOut}

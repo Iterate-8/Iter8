@@ -28,6 +28,11 @@ export interface Database {
         Insert: AnalyticsSummaryInsert;
         Update: AnalyticsSummaryUpdate;
       };
+      cli_prompts: {
+        Row: CliPromptRow;
+        Insert: CliPromptInsert;
+        Update: CliPromptUpdate;
+      };
     };
     Views: {
       session_overview: {
@@ -267,6 +272,31 @@ export interface AnalyticsSummaryUpdate {
   recording_available?: boolean;
   created_at?: string;
   updated_at?: string;
+}
+
+// CLI prompt mapping
+export interface CliPromptRow {
+  id: string;
+  user_id: string;
+  feedback_id: string; // references feedback.id
+  prompt: string;
+  created_at: string;
+}
+
+export interface CliPromptInsert {
+  id?: string;
+  user_id: string;
+  feedback_id: string;
+  prompt: string;
+  created_at?: string;
+}
+
+export interface CliPromptUpdate {
+  id?: string;
+  user_id?: string;
+  feedback_id?: string;
+  prompt?: string;
+  created_at?: string;
 }
 
 // ============================================================================

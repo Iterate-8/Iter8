@@ -1,18 +1,18 @@
 @import "tailwindcss";
 
 :root {
-  /* Brand palette derived from the bottom half of the provided purple scale */
-  --brand-50: #ffffff;
-  --brand-100: #f5f0ff;
-  --brand-200: #ede4ff;
-  --brand-300: #ddccff;
-  --brand-400: #c7a9ff;
-  --brand-500: #a47aff;
-  --brand-600: #7c4dff;
+  /* Black & silver palette */
+  --brand-50: #0a0a0a;   /* near-black (background) */
+  --brand-100: #141414;  /* dark gray 100 */
+  --brand-200: #1f1f1f;  /* dark gray 200 */
+  --brand-300: #2b2b2b;  /* dark gray 300 */
+  --brand-400: #6b7280;  /* silver 400 */
+  --brand-500: #9ca3af;  /* silver 500 */
+  --brand-600: #ffffff;  /* white (accents) */
 
-  /* Light theme surface & text */
-  --background: var(--brand-50);
-  --foreground: #2a1848; /* dark plum for strong contrast */
+  /* Default theme: black background with silver text */
+  --background: #0a0a0a;
+  --foreground: #e5e7eb;
 }
 
 @theme inline {
@@ -33,12 +33,29 @@
   --font-mono: var(--font-sans), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
+/* Optional system dark-mode override is kept, but we add an explicit .dark theme below */
 @media (prefers-color-scheme: dark) {
   :root {
-    /* Force light theme even when system is dark to ensure readability */
-    --background: #ffffff;
-    --foreground: #1c1237;
+    --background: #0a0a0a;
+    --foreground: #e5e7eb;
   }
+}
+
+/* Explicit dark mode when html.dark is set */
+html.dark {
+  --background: #0a0a0a;
+  --foreground: #e5e7eb;
+  /* Dark grayscale steps */
+  --color-brand-50: #0a0a0a;
+  --color-brand-100: #141414;
+  --color-brand-200: #1f1f1f;
+  --color-brand-300: #2b2b2b;
+  --color-brand-400: #6b7280;
+  --color-brand-500: #9ca3af;
+  --color-brand-600: #ffffff;
+  --color-primary: var(--color-brand-600);
+  --color-accent: var(--color-brand-500);
+  --color-muted: #141414;
 }
 
 body {

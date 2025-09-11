@@ -399,4 +399,30 @@ export class DatabaseService {
     const data = await this.getComprehensiveSessionData();
     return JSON.stringify(data, null, 2);
   }
+
+  // ==========================================================================
+  // CLI PROMPTS
+  // ==========================================================================
+
+  /**
+   * Upsert a CLI prompt for a feedback ticket
+   */
+  async upsertCliPrompt(feedbackId: string, prompt: string) {
+    const { data, error } = await supabase
+      .from('cli_prompts')
+      .upsert({
+        user_id: this.userId,
+        feedback_id: feedbackId,
+        prompt
+      }, { onConflict: 'feedback_id' })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error upserting CLI prompt:', error);
+      throw error;
+    }
+
+    return data;
+  }
 } 
